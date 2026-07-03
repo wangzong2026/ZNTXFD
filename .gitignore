@@ -1,0 +1,8 @@
+node_modules/
+.next/
+.env
+.env.local
+.env.production.local
+.memory/short-term/
+.DS_Store
+*.db
