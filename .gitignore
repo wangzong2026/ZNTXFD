@@ -17,3 +17,4 @@ yarn-error.log*
 pnpm-debug.log*
 __pycache__/
 data/.work/
+.vercel

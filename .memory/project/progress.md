@@ -1,22 +1,35 @@
 # 项目进度
 
-## P1 — MVP
+## P1 — MVP ✅ 完成
 
-| 任务 | 状态 | 执行者 | 任务书 |
-|------|------|--------|--------|
-| P1-T1 脚手架+主题 | 🔲 待开始 | Codex | thread_p1_scaffold.md |
-| P1-T2 密码门 | 🔲 待开始 | Codex | thread_p1_password_gate.md |
-| P1-T3 数据管道 | 🔲 待开始 | Codex | thread_p1_data_pipeline.md |
-| P1-T4 日报页面 | 🔲 待开始 | Codex | thread_p1_daily_pages.md |
-| P1-T5 联调+部署 | 🔲 待开始 | Claude PM | — |
+| 任务 | 状态 | 执行者 | 验收结果 |
+|------|------|--------|----------|
+| P1-T1 脚手架+主题 | ✅ 完成 | Codex | 币安暗色主题、Header/Sidebar/BottomNav 全通过 |
+| P1-T2 密码门 | ✅ 完成 | Codex | 未登录 307 重定向、正确密码登入、cookie 7天有效 |
+| P1-T3 数据管道 | ✅ 完成 | Codex+Claude | codex exec 走订阅生成日报、7/3 真实数据 5 话题 |
+| P1-T4 日报页面 | ✅ 完成 | Codex | 列表页+详情页真实数据渲染、Markdown/标签/贡献者组件 |
+| P1-T5 联调 | ✅ 完成 | Claude PM | curl 验证全流程打通、git commit |
 
-## 依赖关系
-- T2, T4 依赖 T1（主题系统）
-- T4 依赖 T3（需要数据文件）
-- T5 依赖 T1-T4 全部完成
+## P2 — 文档库（待启动）
 
-## 执行顺序
-1. T1 脚手架（先行）
-2. T2 密码门 + T3 数据管道（并行）
-3. T4 日报页面
-4. T5 联调部署
+| 任务 | 状态 | 执行者 |
+|------|------|--------|
+| P2-T1 文档自动抓取 | 🔲 待开始 | TBD |
+| P2-T2 文档在线预览 | 🔲 待开始 | TBD |
+| P2-T3 文档分类管理 | 🔲 待开始 | TBD |
+
+## P3 — 智能化（待启动）
+
+| 任务 | 状态 | 执行者 |
+|------|------|--------|
+| P3-T1 全文搜索 | 🔲 待开始 | TBD |
+| P3-T2 AI 自动标签 | 🔲 待开始 | TBD |
+| P3-T3 主题专栏聚合 | 🔲 待开始 | TBD |
+| P3-T4 贡献者排行 | 🔲 待开始 | TBD |
+
+## 部署 ✅ 完成
+- [x] 创建 GitHub 仓库 — https://github.com/wangzong2026/ZNTXFD.git（代码未推送，直接走 Vercel CLI 部署）
+- [x] 部署到 Vercel — https://agent-knowledge-base.vercel.app
+- [x] 配置环境变量 ACCESS_PASSWORD=agent2026
+- [ ] 多跑几天数据积累日报内容
+- [ ] 配置自定义域名（可选）

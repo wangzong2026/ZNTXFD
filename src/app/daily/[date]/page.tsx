@@ -114,15 +114,18 @@ export default async function DailyPage({ params }: DailyPageProps) {
   ];
 
   return (
-    <section className="mx-auto w-full max-w-5xl">
+    <section className="relative mx-auto w-full max-w-5xl overflow-hidden">
+      <div className="pointer-events-none absolute -left-28 top-6 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(240,185,11,0.18)_0%,rgba(240,185,11,0)_68%)] blur-2xl" />
+      <div className="pointer-events-none absolute right-0 top-32 h-72 w-72 rounded-full bg-[radial-gradient(circle,rgba(2,192,118,0.12)_0%,rgba(2,192,118,0)_70%)] blur-2xl" />
+
       <Link
         href="/"
-        className="mb-5 inline-flex items-center rounded-md px-2 py-1 text-sm font-medium text-foreground-muted transition-colors hover:bg-background-hover hover:text-accent"
+        className="glass card-hover relative mb-5 inline-flex items-center rounded-[20px] px-3 py-2 text-sm font-medium text-foreground-muted hover:text-accent"
       >
         ← 返回列表
       </Link>
 
-      <div className="mb-6">
+      <div className="relative mb-6">
         <time className="text-sm font-medium text-accent">
           {formatDate(report.date)}
         </time>
@@ -131,11 +134,11 @@ export default async function DailyPage({ params }: DailyPageProps) {
         </h1>
       </div>
 
-      <div className="mb-6 grid grid-cols-3 overflow-hidden rounded-lg border border-border bg-background-card">
+      <div className="glass-card relative mb-6 grid grid-cols-3 overflow-hidden">
         {stats.map((item) => (
           <div
             key={item.label}
-            className="border-r border-border px-3 py-4 last:border-r-0 md:flex md:items-center md:gap-3 md:px-5"
+            className="border-r border-border/80 px-3 py-4 last:border-r-0 md:flex md:items-center md:gap-3 md:px-5"
           >
             <div className="mb-2 text-accent md:mb-0">
               <StatIcon type={item.type} />
@@ -154,7 +157,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
         {report.topics.map((topic) => (
           <article
             key={topic.title}
-            className="rounded-lg border border-border bg-background-card p-4 md:p-5"
+            className="glass-card card-hover relative p-4 md:p-5"
           >
             <h2 className="text-lg font-bold leading-8 text-foreground md:text-xl">
               {topic.title}
@@ -167,7 +170,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
             <div className="mt-4">
               <ContributorList contributors={topic.contributors} />
             </div>
-            <div className="mt-5 border-t border-border pt-5">
+            <div className="mt-5 border-l-2 border-accent/70 pl-4 md:pl-5">
               <MarkdownContent content={topic.content} />
             </div>
           </article>
@@ -178,26 +181,26 @@ export default async function DailyPage({ params }: DailyPageProps) {
         {previousDate ? (
           <Link
             href={`/daily/${previousDate}`}
-            className="rounded-lg border border-border bg-background-card p-4 text-sm font-medium text-foreground-muted transition-colors hover:bg-background-hover hover:text-accent"
+            className="glass-card card-hover p-4 text-sm font-medium text-foreground-muted hover:text-accent"
           >
             <span>← 前一天</span>
             <span className="mt-1 block text-xs">{formatDate(previousDate)}</span>
           </Link>
         ) : (
-          <span className="rounded-lg border border-border bg-background-card p-4 text-sm text-foreground-disabled">
+          <span className="glass-card p-4 text-sm text-foreground-disabled">
             ← 前一天
           </span>
         )}
         {nextDate ? (
           <Link
             href={`/daily/${nextDate}`}
-            className="rounded-lg border border-border bg-background-card p-4 text-right text-sm font-medium text-foreground-muted transition-colors hover:bg-background-hover hover:text-accent"
+            className="glass-card card-hover p-4 text-right text-sm font-medium text-foreground-muted hover:text-accent"
           >
             <span>后一天 →</span>
             <span className="mt-1 block text-xs">{formatDate(nextDate)}</span>
           </Link>
         ) : (
-          <span className="rounded-lg border border-border bg-background-card p-4 text-right text-sm text-foreground-disabled">
+          <span className="glass-card p-4 text-right text-sm text-foreground-disabled">
             后一天 →
           </span>
         )}

@@ -23,9 +23,33 @@ const config: Config = {
           DEFAULT: "#F0B90B",
           light: "#F8D12F",
         },
-        success: "#0ECB81",
+        success: "#02C076",
+        purple: "#8364FF",
+        pink: "#FF6482",
         danger: "#F6465D",
         border: "#2B3139",
+      },
+      backdropBlur: {
+        glass: "16px",
+      },
+      animation: {
+        float: "float 6s ease-in-out infinite",
+        glow: "glow 4s ease-in-out infinite",
+        gradientShift: "gradientShift 8s ease infinite",
+      },
+      keyframes: {
+        float: {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-8px)" },
+        },
+        glow: {
+          "0%, 100%": { opacity: "0.55", transform: "scale(1)" },
+          "50%": { opacity: "0.9", transform: "scale(1.04)" },
+        },
+        gradientShift: {
+          "0%, 100%": { backgroundPosition: "0% 50%" },
+          "50%": { backgroundPosition: "100% 50%" },
+        },
       },
     },
   },

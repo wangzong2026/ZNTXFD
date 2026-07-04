@@ -21,7 +21,7 @@ const tabs = [
     ),
   },
   {
-    label: "文档",
+    label: "日报",
     active: false,
     icon: (
       <svg
@@ -34,7 +34,47 @@ const tabs = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />
+        <path d="M7 3v3" />
+        <path d="M17 3v3" />
+        <path d="M4 8h16" />
+        <rect x="4" y="5" width="16" height="16" rx="2" />
+      </svg>
+    ),
+  },
+  {
+    label: "精华",
+    active: false,
+    icon: (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="m12 3 1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8Z" />
+        <path d="m18 14 .9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9Z" />
+      </svg>
+    ),
+  },
+  {
+    label: "热门",
+    active: false,
+    icon: (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M12 22c3.5-1.5 6-4.4 6-8a7.2 7.2 0 0 0-3.5-6.2c-.1 2-1.1 3.2-2.4 4.2.3-3.2-1.2-5.8-4.1-8C8.2 8.2 4 10 4 14c0 3.6 2.5 6.5 8 8Z" />
       </svg>
     ),
   },
@@ -61,7 +101,7 @@ const tabs = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 grid h-16 grid-cols-3 border-t border-border bg-background-card md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 grid h-16 grid-cols-5 border-t border-border/80 bg-background/80 backdrop-blur-glass md:hidden">
       {tabs.map((tab) => (
         <Link
           key={tab.label}
