@@ -62,10 +62,10 @@ function SearchIcon() {
 
 const navItems = [
   { label: "首页", href: "/", active: true, icon: <HomeIcon /> },
-  { label: "日报", href: "/", active: false, icon: <DailyIcon /> },
-  { label: "精华", href: "/", active: false, icon: <EssenceIcon /> },
-  { label: "热门", href: "/", active: false, icon: <HotIcon /> },
-  { label: "排行", href: "/", active: false, icon: <RankIcon /> },
+  { label: "日报", href: "/daily", active: false, icon: <DailyIcon /> },
+  { label: "精华", href: "/highlights", active: false, icon: <EssenceIcon /> },
+  { label: "热门", href: "/trending", active: false, icon: <HotIcon /> },
+  { label: "排行", href: "/contributors", active: false, icon: <RankIcon /> },
   { label: "搜索", href: "/", active: false, icon: <SearchIcon /> },
 ];
 

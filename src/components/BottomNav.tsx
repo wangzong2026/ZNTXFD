@@ -3,6 +3,7 @@ import Link from "next/link";
 const tabs = [
   {
     label: "首页",
+    href: "/",
     active: true,
     icon: (
       <svg
@@ -22,6 +23,7 @@ const tabs = [
   },
   {
     label: "日报",
+    href: "/daily",
     active: false,
     icon: (
       <svg
@@ -43,6 +45,7 @@ const tabs = [
   },
   {
     label: "精华",
+    href: "/highlights",
     active: false,
     icon: (
       <svg
@@ -62,6 +65,7 @@ const tabs = [
   },
   {
     label: "热门",
+    href: "/trending",
     active: false,
     icon: (
       <svg
@@ -80,6 +84,7 @@ const tabs = [
   },
   {
     label: "搜索",
+    href: "/",
     active: false,
     icon: (
       <svg
@@ -105,7 +110,7 @@ export function BottomNav() {
       {tabs.map((tab) => (
         <Link
           key={tab.label}
-          href="/"
+          href={tab.href}
           className={`flex flex-col items-center justify-center gap-1 text-xs font-medium ${
             tab.active ? "text-accent" : "text-foreground-muted"
           }`}
