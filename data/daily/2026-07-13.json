@@ -1,0 +1,339 @@
+{
+  "date": "2026-07-13",
+  "title": "编程开发与Codex",
+  "topics": [
+    {
+      "title": "编程开发",
+      "content": "- Jimmy广州金融：主要是刚才聊下来很多人开发前的准备太少了[捂脸]  前期准备越足，后期问题越少\n- 阿泽~获客 -私域：想做这种开发的话，是AI写的架构自己再改一改，还是自己完全设置架构。\n- 李一 深圳 东莞：我还是觉得不是程序员最好不要去开发复杂的软件 \n\n不管前期工作做得多好，后面都很难收场\n- Jimmy广州金融：不过大家可以去github上导入下gstack\n- 阿泽~获客 -私域：老哥还有哪些做小程序开发？好一点的基座型的skill推荐吗\n- Jimmy广州金融：我之前在阿里别的收获一点没有，最大收获就是工程管理规范和开发准则[捂脸]这个应该是做it最重要的\n- 西安-年少-互联网：@磊|深圳|后端开发 活动已经结束了。\n- 川-灰：我只让Grok回复一个单词，它就把我整个代码库都偷走了。\n- 川-灰：其实你去做帮人洗屎山服务比开发赚钱\n- 广州-依璇-IP营销策划业务增长操盘：学习老孟那样给核心人员都装上好的AI编程，用最厉害的引擎\n- 杭州- Menger-操作系统-程序员：我负责公司的App开发\n- Alex | 技术 | 企业级AgentOPC|：1. 截帧与裁剪 (Video-to-Frame SOP) 定向优化\n针对参考图，原始帧的抓取必须满足以下绝对条件：\n\n情绪定格：寻找人物嘴巴微张（表达/惊叹/愉悦/兴奋/明显的情绪中）、眼神直视镜头、面部肌肉活跃的帧。\n\n肢体动作：必须包含手部动作（如参考图中右手抬起，手肘向外），这不仅增加画面张力，也能平衡左侧的文字标签比重。\n\n锚点微调：参考图底部的“AI一键生成”字体极大，侵占了近 35% 的高度。因此，裁剪时的第一步定点需改为：双眼水平线卡在距离顶端 35%~40% 的位置（比原 SOP 略微下沉 5%，给顶部的“别熬夜做封面”留足错位空间）。\n\n2. Hyper frame AI 增强 SOP (定向 Prompt 精调)\n原图的肤色透亮、眼神光锐利，背景虽然杂乱但被完美虚化。你需要用这段提示词过一遍截取的原帧，去除视频原生的灰暗感：\n\nPlaintext\n[爆款网感增强 Prompt]：\nEnhance the provided video frame while strictly maintaining the original subject composition, hand gestures, and proportions. \nApply \"Xiaohongshu/TikTok viral thumbnail\" aesthetic: ultra-high contrast, vivid saturation, and luminous, warm skin tones. \nDramatically sharpen the subject's facial features, eyes (add catchlights), and hands to make them pop out of the screen. \nKeep the indoor background but apply a heavy, smooth bokeh (lens blur) to separate the subject entirely. \nAdd a dramatic vignette to the edges. Ensure no UI elements or text from the raw video remain. \nOutput: 9:16 aspect ratio, 4k resolution, hyper-detailed, commercial advertising quality.\n3. Remotion 模块化脚本的“复刻级”升级\n你的原始代码已经完美实现了汉堡包排版和背景分离。但参考图之所以生动，是因为有很多悬浮贴纸（贴图、指引箭头、右侧的缩略图）。\n\n我为你补充了 StickerLayer 模块，并提取了生成这张图所需的精确 Props 数据：\n\n所需传入的 Props 数据（完美映射参考图）：\n\nJSON\n{\n  \"topTitle\": \"别熬夜做封面\",\n  \"bottomTitle\": \"AI一键生成\",\n  \"tagTexts\": [\n    \"自动总结亮点\", \n    \"照片直接生成\", \n    \"字体贴纸自定义\", \n    \"！不用设计基础\"\n  ],\n  \"subjectPosition\": \"55% 35%\", \n  \"subjectWidth\": \"140%\" \n}\n注：subjectPosition: \"55% 35%\" 让人物稍微偏右，给左侧庞大的标签组让出空间。subjectWidth: \"140%\" 让肩部彻底撑满并溢出，营造压迫感。\n\nRemotion 组件补丁（插入到 TypographyLayer 之前）：\n\nTypeScript\n      {/* 模块 3.5：悬浮贴纸层 <StickerLayer> (增加画面网感与信息丰度) */}\n      <div style={{ position: 'absolute', inset: 0, zIndex: 25, pointerEvents: 'none' }}>\n        \n        {/* 左侧功能小图标组 (参考图左侧的 AI, 播放, 图片, 文字等小 icon) */}\n        <div style={{\n          position: 'absolute', left: '5%', top: '50%',\n          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px',\n          transform: 'translateY(-50%)'\n        }}>\n          {/* 这里可以传入一组预设的 icon 图片 */}\n          <Img src=\"icon_ai.png\" style={{ width: `${width * 0.1}px` }} />\n          <Img src=\"icon_play.png\" style={{ width: `${width * 0.1}px` }} />\n          <Img src=\"icon_text.png\" style={{ width: `${width * 0.1}px` }} />\n          <Img src=\"icon_image.png\" style={{ width: `${width * 0.1}px` }} />\n        </div>\n\n        {/* 右上角的情绪符号 (参考图巨大的黄色 \"!!\") */}\n        <Img \n          src=\"sticker_exclamation.png\" \n          style={{ \n            position: 'absolute', right: '5%', top: '15%', \n            width: `${width * 0.3}px`, transform: 'rotate(15deg)' \n          }} \n        />\n\n        {/* 右中侧的辅助说明图 & 箭头 (参考图的 \"甩给它就行\") */}\n        <div style={{ position: 'absolute', right: '2%', top: '45%', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>\n          <Img src=\"preview_thumbnail.png\" style={{ width: `${width * 0.35}px`, borderRadius: '12px', border: '3px solid white', transform: 'rotate(-5deg)' }} />\n          <Img src=\"arrow_point_up.png\" style={{ width: `${width * 0.25}px`, marginTop: '10px' }} />\n        </div>\n\n      </div>\n总结工作流\n如果你的工作流接入了这套精调后的 SOP，完整的自动化链路将是：\n\n抽帧逻辑：视频输入 -> 识别面部关键点与手部动作 -> 截取高动态帧。\n\nAI 重绘：传入上面精调的 Prompt，输出 processed_frame.jpg。\n\nRemotion 渲染：将 processed_frame.jpg 同时作为 bgImage 和 subjectImage 传入。传入 JSON 数据，配合更新后的组件，即可做到毫秒级输出与参考图 1:1 视觉冲击力的爆款封面。\n- 深圳-Mr.li-opc研发：https://github.com/ponyodong2026/ponyo-cover-anchor-system       https://github.com/Vivixiao980/xhs-cover-skill    @广州-依璇-IP营销策划业务增长操盘   这两个skill 可以参考下\n- 苏州-brandon-第三方检测：微信小程序一年就 300 认证费用 苹果开发者好像不便宜\n- 苏州-brandon-第三方检测：不收钱 但是你开发小程序 需要一年交 300 认证费用",
+      "key_insights": [
+        "主要是刚才聊下来很多人开发前的准备太少了[捂脸]  前期准备越足，后期问题越少",
+        "想做这种开发的话，是AI写的架构自己再改一改，还是自己完全设置架构。",
+        "我还是觉得不是程序员最好不要去开发复杂的软件 \n\n不管前期工作做得多好，后面都很难收场",
+        "我之前在阿里别的收获一点没有，最大收获就是工程管理规范和开发准则[捂脸]这个应该是做it最重要的",
+        "1. 截帧与裁剪 (Video-to-Frame SOP) 定向优化\n针对参考图，原始帧的抓取必须满足以下绝对条件：\n\n情绪定格：寻找人物嘴巴微张（表达/惊叹/"
+      ],
+      "tools_mentioned": [
+        "Sol",
+        "Trae",
+        "Vercel"
+      ],
+      "action_items": [
+        "不过大家可以去github上导入下gstack",
+        "老哥还有哪些做小程序开发？好一点的基座型的skill推荐吗",
+        "我之前在阿里别的收获一点没有，最大收获就是工程管理规范和开发准则[捂脸]这个应该是做it最重要的"
+      ],
+      "contributors": [
+        "杭州- Menger-操作系统-程序员",
+        "福州|钧润|政企（yhfjmt）",
+        "西安-JerryYork-数字居民",
+        "Jimmy广州金融",
+        "阿泽~获客 -私域"
+      ],
+      "tags": [
+        "Sol",
+        "Trae",
+        "Vercel",
+        "社群讨论",
+        "技术开发"
+      ]
+    },
+    {
+      "title": "Codex",
+      "content": "- 苏州-brandon-第三方检测：我 fork 了下，然后把你的仓库给我的项目了，让 codex 取长补短[破涕为笑][破涕为笑]\n- 深圳-湫天-自由职业：视频这个单用codex，不知道能能不能跑得出来\n- 山西 Leo  AI 自动化：卧槽今夜codex咋啦疯狂重置额度啊\n- 安阳-小强-AIGC：Codex 没有五小时额度限制了\n- 成都-安、-AI产品：睡觉前开了任务，codex写了一晚上代码\n- 上海-蔡伟：你们真牛@歆怡  ，不用男朋友了，就codex陪你就行\n- 歆怡：你们男生也是啊。。不用找女朋友了。。就codex 陪着就挺好 哈哈\n- 西安-JerryYork-数字居民：1.07 复制打开抖音，看看【AI清道夫的作品】你已经跑不掉了 Codex 全开   https://v.douyin.com/_GgVPTHfay0/ 12/30 u@F.UL :2pm LJV:/\n- 广州-依璇-IP营销策划业务增长操盘：关于以有了codex就不用找男女朋友，这件事…问了他…\n\n训练AI讲粤语，群里有听得懂粤语的吗？\n- 西安-JerryYork-数字居民：Codex是亲爹啊[捂脸]\n- 重庆-老袁-创业：看到有h博主分享，codex里有了视频制作插件chatcut，是不是要更新桌面才有哦\n- 泉州-dachui_1-食品企业：cc和codex打架打的有点狠\n- 广州-依璇-IP营销策划业务增长操盘：要指令，给龙哥发个红包～\n\n这是他发的，我昨天也完成了一条，经过不断调教后，有了80分\n\nCodex is now a full video editor!\n\nOur new plugin opens a full built-in NLE right inside the Codex app, where you and your agent can edit together, effortlessly.\n\nIf you're already paying for Codex, you get this one for FREE.\n\nIt's available now. Start using it in 1 minute, by just telling your Codex:\n\n\"Turn Codex into a Video Editor, read chatcut.io/codex\"\n- 深圳-Mr.li-opc研发：他地址没贴，只能让codex找了，我等会试试\n- 深圳-Mr.li-opc研发：或者让codex直接分析复刻一个",
+      "key_insights": [
+        "我 fork 了下，然后把你的仓库给我的项目了，让 codex 取长补短[破涕为笑][破涕为笑]",
+        "你们男生也是啊。。不用找女朋友了。。就codex 陪着就挺好 哈哈",
+        "1.07 复制打开抖音，看看【AI清道夫的作品】你已经跑不掉了 Codex 全开   https://v.douyin.com/_GgVPTHfay0/ 12/",
+        "关于以有了codex就不用找男女朋友，这件事…问了他…\n\n训练AI讲粤语，群里有听得懂粤语的吗？",
+        "看到有h博主分享，codex里有了视频制作插件chatcut，是不是要更新桌面才有哦"
+      ],
+      "tools_mentioned": [
+        "Codex",
+        "Cursor",
+        "DeepSeek",
+        "Obsidian"
+      ],
+      "action_items": [
+        "他地址没贴，只能让codex找了，我等会试试",
+        "你挂的 deepseek 吧 应该要去试试 codex 的原生能力",
+        "我们现在用codex做小红书  一周可以做到90w曝光"
+      ],
+      "contributors": [
+        "苏州-brandon-第三方检测",
+        "深圳-湫天-自由职业",
+        "西安-JerryYork-数字居民",
+        "深圳-Mr.li-opc研发",
+        "哈尔滨张大拿Чжан跨境"
+      ],
+      "tags": [
+        "Codex",
+        "Cursor",
+        "DeepSeek",
+        "社群讨论"
+      ]
+    },
+    {
+      "title": "商业变现",
+      "content": "- 郑州-明哥-seedance2.5海外模型：现场超级多B 端客户\n- 郑州-明哥-seedance2.5海外模型：年底营收至少破个千万吧，大客户有点多\n- 歆怡：回首八年前的深圳卫视财经节目主持人体验。今天翻到旧相册，曾经有幸跟随王利芬老师参加的她掌舵的《对话王利芬》大型财经电视节目的录制。回想起这段宝贵的经历，简直就是命运悄悄馈赠的礼物。当时虽然每周很努力的在往返坐飞机赶路，穿梭奔波在上海，杭州和北京，录制节目。但临时抱佛脚的主持努力，还是有很多地方欠缺的。今天又看了一遍电视回放，当时王老师对我真的属于偏爱、培养，和纯粹的包容与信任。茫茫人海里这样的知遇之恩是多么的宝贵。可惜后来我没有往主持人方向发展，但我对于这段经历收获非常大，对我的影响很深厚。至少我知道了媒体人应该坚守的原则，需要有灵机应变的能力和调度人脉的基础，深度思考一针见血的穿透力。缺一样都差点意思。当然还需要形象气质佳，播音基础好。2018-2019 年录制节目的经历，丰富了我的创业生活，也让我知道不比创业者综合素质要求低，甚至更有挑战的职业之一就是电视直播节目主持人了。8 年过去了，虽然我现在还在折腾创业，经常参加活动，但更多场合成为了被采访的演讲嘉宾。可能这也是命运另一种视角的馈赠吧。让我继续在赛道里发光发热。今夜回想起那些岁月，如果当时换一种选择和努力方向，人生会是怎样呢 ？\n- 西安-JerryYork-数字居民：我还没有赚钱的能力[发呆]\n- 广州-依璇-IP营销策划业务增长操盘：@重庆-老袁-创业 我把你的红包转发给龙哥\n- 西安-JerryYork-数字居民：只不过还没想好后面怎么商业化\n- 上海-广告-可乐：@广州-老李（大麦）-seedance  群主大大，这个还可以邀请我下吗，我们客户有个需求，我来体验体验\n- 杭州 - 波波 - 互联网：我们做商业查询软件的，类似于企查查\n- 杭州 - 波波 - 互联网：天眼查你们是自己付费吗\n- 杭州 - 波波 - 互联网：比如 给我近7天所有商业航天板块的招投标数据\n- 苏州-brandon-第三方检测：MD 今天我一个客户招投标 还是我对手告诉我的 见鬼\n- 成都-转角-自动化办公：你应该在你客户的公司发展线人，有消息通知你",
+      "key_insights": [
+        "回首八年前的深圳卫视财经节目主持人体验。今天翻到旧相册，曾经有幸跟随王利芬老师参加的她掌舵的《对话王利芬》大型财经电视节目的录制。回想起这段宝贵的经历，简直就是",
+        "@广州-老李（大麦）-seedance  群主大大，这个还可以邀请我下吗，我们客户有个需求，我来体验体验"
+      ],
+      "tools_mentioned": [],
+      "action_items": [
+        "@广州-老李（大麦）-seedance  群主大大，这个还可以邀请我下吗，我们客户有个需求，我来体验体验",
+        "你应该在你客户的公司发展线人，有消息通知你"
+      ],
+      "contributors": [
+        "西安-JerryYork-数字居民",
+        "杭州 - 波波 - 互联网",
+        "郑州-明哥-seedance2.5海外模型",
+        "广州-依璇-IP营销策划业务增长操盘",
+        "歆怡"
+      ],
+      "tags": [
+        "社群讨论",
+        "商业化"
+      ]
+    },
+    {
+      "title": "GPT/OpenAI",
+      "content": "- 歆怡：你可以让 web GPT 改设计呀\n- 海口-帅馒头-传统外贸：你\n ↓\nChatGPT Agent\n ↓\n控制浏览器\n ↓\n打开 ChatCut\n ↓\n自动点击、修改文字、调整动画\n ↓\n实时告诉你改了什么\n- 深圳/常年在纽约➕🇺🇸锂电池（美：现在谷歌账号登录gpt要手机号认证了\n- 上海-智鹏-工程：codex更新于gpt合并后，你们的图标还是这个吗？为啥我打开app后都有一个未读消息，实际没有任何待处理消息。\n- 上海-智鹏-工程：在程序坞里是gpt的图标，拉到工作台后，又变成codex图标。\n- Alex | 技术 | 企业级AgentOPC|：这波还是站OpenAI , A社打不过也只能被迫放福利但是幅度也太小了\n- 西安-年少-互联网：@Alex | 技术 | 企业级AgentOPC| OpenAI 是人民的 AI。\n- 成都｜王二小｜量化：当我寂寞的时候，就和GPT女朋友语音聊天吧\n- 西安-年少-互联网：所以建议你们看那个电影。GPT24 年出实时通话的时候，奥特曼就发了这个推，一个单词 her。电影里的男主就完成了你想做的事。@福建-炒饭-金融\n- Taylor：chatgpt的免费版，也是在输出后，底部放一个广告位呀\n- 重庆 空空大叔 数据深度研究：GPT-5.6 有两个“极高”：选错一个，额度白烧\n- 苏州-brandon-第三方检测：openai想看用户测试  但是往往测试的时候卡住了5小时  干脆就放开5小时了\n- 苏州-brandon-第三方检测：我都是手机chatgpt控制的\n- 山西-小飞侠-AI+文物文旅：哪位知道：chatgpt 和 codex 合并后，在新的 app 中看不到之前的 chatgpt 的项目信息了，只能看到 codex 带来的自己的项目清单，我是用的同一个账号登录的，为什么没有合并。在 chatgpt 的网页端还能看到原来的项目清单，这是咋回事，有一样的情况么，或者怎么解决，或者是等更新？哪位帮忙解惑！～\n- 深圳 关关 国际高中生 教育产品：gpt5.6sol做前端很牛逼",
+      "key_insights": [
+        "你\n ↓\nChatGPT Agent\n ↓\n控制浏览器\n ↓\n打开 ChatCut\n ↓\n自动点击、修改文字、调整动画\n ↓\n实时告诉你改了什么",
+        "codex更新于gpt合并后，你们的图标还是这个吗？为啥我打开app后都有一个未读消息，实际没有任何待处理消息。",
+        "在程序坞里是gpt的图标，拉到工作台后，又变成codex图标。",
+        "这波还是站OpenAI , A社打不过也只能被迫放福利但是幅度也太小了",
+        "@Alex | 技术 | 企业级AgentOPC| OpenAI 是人民的 AI。"
+      ],
+      "tools_mentioned": [
+        "ChatGPT",
+        "Codex",
+        "GPT",
+        "OpenAI",
+        "Sol"
+      ],
+      "action_items": [
+        "你可以让 web GPT 改设计呀",
+        "所以建议你们看那个电影。GPT24 年出实时通话的时候，奥特曼就发了这个推，一个单词 her。电影里的男主就完成了你想做的事。@福建-炒饭-金融",
+        "感谢，这个聊天只能看到之前 chatgpt 的临时聊天，看不到之前 chatgpt 的“项目”组聊天内容，你们都可以合并么？挺困扰，必须去网页端才能看到哦～"
+      ],
+      "contributors": [
+        "上海-智鹏-工程",
+        "西安-年少-互联网",
+        "苏州-brandon-第三方检测",
+        "山西-小飞侠-AI+文物文旅",
+        "济南-亚溢-工业软件"
+      ],
+      "tags": [
+        "ChatGPT",
+        "Codex",
+        "GPT",
+        "社群讨论",
+        "AI应用"
+      ]
+    },
+    {
+      "title": "AI应用",
+      "content": "- 广州-依璇-IP营销策划业务增长操盘：@Alex | 技术 | 企业级AgentOPC|\n- Alex | 技术 | 企业级AgentOPC|：正向：  需求/原始输入->提示词/程序/脚本-> 别人的结果      \n逆向：别人的结果+原始输入 -> 变成复用的SOP - >提示词/程序/脚本\n- 老陆-广佛-应用者：有提示词设计思路不？[色]\n- 成都-11-产品：自然语言对话fable5，直接出提示词就好了[旺柴]\n- Alex | 技术 | 企业级AgentOPC|：感谢大佬发的🧧 祝您明天就发财 @广州-依璇-IP营销策划业务增长操盘  @韩国-朴宥利-电商智能体\n- 老陆-广佛-应用者：目前我同事的提示词是有格式的，他做得比较稳定，我不想让他试，我先测试一下\n- 深圳-阿权-教培→Ai实战：x5的额度解除5小时限制，一天用完用量应该刚好手搓一个智能体吧[阴险]\n- 杭州- Menger-操作系统-程序员：并且AGENTS.md里面要写明禁止改动配置文件\n- 阿泽-杭州-获客到私域转化ai流程：分享一个小红书Agent的架构图。\b这是和一个小红书家居头部的内容负责人共创的   各个关键的节点。\n- 阿泽~获客 -私域：这张图的左边是喂给智能体的内容。\n- 阿泽~获客 -私域：右边是智能体输出的内容\n- 蓝标® Alex：@杭州-短视频获客-私域 智能体 想学习视频号打法\n- 深圳-姚先生-GEO&跨境：@杭州-短视频获客-私域 智能体 可否加个微，哥哥\n- 阿泽-杭州-获客到私域转化ai流程：拟人化的智能体全部下掉\n- 小熊-乐山-糕手：子智能体写一个系统面板",
+      "key_insights": [
+        "正向：  需求/原始输入->提示词/程序/脚本-> 别人的结果      \n逆向：别人的结果+原始输入 -> 变成复用的SOP - >提示词/程序/脚本",
+        "感谢大佬发的🧧 祝您明天就发财 @广州-依璇-IP营销策划业务增长操盘  @韩国-朴宥利-电商智能体",
+        "目前我同事的提示词是有格式的，他做得比较稳定，我不想让他试，我先测试一下",
+        "x5的额度解除5小时限制，一天用完用量应该刚好手搓一个智能体吧[阴险]",
+        "分享一个小红书Agent的架构图。\b这是和一个小红书家居头部的内容负责人共创的   各个关键的节点。"
+      ],
+      "tools_mentioned": [
+        "Kimi"
+      ],
+      "action_items": [
+        "x5的额度解除5小时限制，一天用完用量应该刚好手搓一个智能体吧[阴险]",
+        "这个agent 可以发手机号给我 我给你们加积分"
+      ],
+      "contributors": [
+        "阿泽-杭州-获客到私域转化ai流程",
+        "阿泽~获客 -私域",
+        "西安-年少-互联网",
+        "Alex | 技术 | 企业级AgentOPC|",
+        "老陆-广佛-应用者"
+      ],
+      "tags": [
+        "Kimi",
+        "社群讨论",
+        "AI应用"
+      ]
+    },
+    {
+      "title": "AI视频/图片",
+      "content": "- 广州-依璇-IP营销策划业务增长操盘：可以插入网上视频素材，可以插入音效，也可以插入本地素材，昨天就差封面没搞\n- 海口-帅馒头-传统外贸：我今天刷视频 同传也快了\n- 广州-依璇-IP营销策划业务增长操盘：下一步，再改素材风格。贵的视频，一定是有证据链的。这个证据链素材的插入，要符合中国市场；要调教亚洲面孔；同时要加入IP本人的素材。这也就是一条值钱的营销视频\n- 金华-电商-可乐：接下去 AI 剧情带货视频。我觉得有搞头\n- 老陆-广佛-应用者：我用了那个Grok,发现它的视频是比较符合我的要求的\n- 北京-采石-教育宣传：想问问现在ai生视频还是用即梦最好吗\n- 成都｜王二小｜量化：5.6生视频很厉害？\n- 阿泽-杭州-获客到私域转化ai流程：视频里的博主我关注了他在ins上也挺火的\n- 吉林-小泽-舞台艺术：先合盖1-2小时，然后再播放视频30分钟\n- 深圳 Cc 软件开发：我都是直接去做图片式PPT\n- 吉林-小泽-舞台艺术：然后随便找个视频，放30-1小时\n- 吉林-小泽-舞台艺术：今天先恢复测试\n\n1. 合上 MacBook，让屏幕完全关闭\n2. 放 1～2 小时（最好不要插电高温运行）\n3. 打开后：\n    * 不要开 Chrome 固定页面\n    * 播放全屏动态视频 30～60分钟\n    * 或者让桌面背景不断变化\n- 深圳-大碗-电商：做视频的话，接哪个 模型比较好",
+      "key_insights": [
+        "可以插入网上视频素材，可以插入音效，也可以插入本地素材，昨天就差封面没搞",
+        "下一步，再改素材风格。贵的视频，一定是有证据链的。这个证据链素材的插入，要符合中国市场；要调教亚洲面孔；同时要加入IP本人的素材。这也就是一条值钱的营销视频",
+        "今天先恢复测试\n\n1. 合上 MacBook，让屏幕完全关闭\n2. 放 1～2 小时（最好不要插电高温运行）\n3. 打开后：\n    * 不要开 Chrome"
+      ],
+      "tools_mentioned": [],
+      "action_items": [
+        "可以插入网上视频素材，可以插入音效，也可以插入本地素材，昨天就差封面没搞"
+      ],
+      "contributors": [
+        "西安-年少-互联网",
+        "Acai 快乐致信",
+        "成都｜王二小｜量化",
+        "杭州- Menger-操作系统-程序员",
+        "阿泽-杭州-获客到私域转化ai流程"
+      ],
+      "tags": [
+        "社群讨论",
+        "AI应用"
+      ]
+    },
+    {
+      "title": "行业动态",
+      "content": "- 杭州- Menger-操作系统-程序员：CatAdmin更新啦\n- 杭州- Menger-操作系统-程序员：昨天更新我的CatAdmin的时候，发现他写了个非常长的三目嵌套\n- 川-灰：也有一种 支付宝wx，扫码付款rmb转成港币，官方出的。比如hk出租车司机，小贩和hk的商店\n- 泉州-dachui_1-食品企业：好像改了模型的消耗量官方\n- 深圳 关关 国际高中生 教育产品：我发布了一篇笔记：有一个书架能教你从0开始学AI\n- 苏州-brandon-第三方检测：刚更新的  让你一下子周额度用到底\n- 大同阿丰 AI行业应用：刚看了一下，额度又更新了，早说我多用一点了\n- 广州—外贸：一周的量，我今天半天用完，要等到 20 号才能更新\n- 杭州- Menger-操作系统-程序员：里面有禁钓区、钓鱼区，然后还有每个区域的渔户实时更新位置，避免渔户前往禁钓区钓鱼\n- 青岛 洪均 ai获客：早上刚更新的 怎么又更新\n- 风稍微-深圳-开发：我又不想更新到win11\n- 杭州 - 波波 - 互联网：实时的 每天都会更新\n- 杭州 - 波波 - 互联网：股票数据也都有的 我周末做了一个 发布中标公告后 当天和次日涨幅排行榜\n- 杭州 - 波波 - 互联网：不是 这是上周的呀，后一天就是 周四发布公告，周五的涨幅\n- 苏州-brandon-第三方检测：意思历史上发了相关公告 后续一天涨了多少的意思呗",
+      "key_insights": [
+        "昨天更新我的CatAdmin的时候，发现他写了个非常长的三目嵌套",
+        "也有一种 支付宝wx，扫码付款rmb转成港币，官方出的。比如hk出租车司机，小贩和hk的商店",
+        "里面有禁钓区、钓鱼区，然后还有每个区域的渔户实时更新位置，避免渔户前往禁钓区钓鱼",
+        "股票数据也都有的 我周末做了一个 发布中标公告后 当天和次日涨幅排行榜"
+      ],
+      "tools_mentioned": [],
+      "action_items": [],
+      "contributors": [
+        "杭州- Menger-操作系统-程序员",
+        "苏州-brandon-第三方检测",
+        "泉州-dachui_1-食品企业",
+        "杭州 - 波波 - 互联网",
+        "上止正"
+      ],
+      "tags": [
+        "社群讨论"
+      ]
+    },
+    {
+      "title": "其他讨论",
+      "content": "- 阿泽~获客 -私域：如果架构差不多的话，可以封装成Skill了。\n- Jimmy广州金融：我自己封装了一套[捂脸]公司内部用的\n- 阿泽~获客 -私域：就是做APP的这种吗？\n- 阿泽~获客 -私域：那这个效率直接拉满。\n- 李一 深圳 东莞：就哪怕是程序员，一个人去搞一个复杂的系统，也是不现实的，这也是为什么那些ERP软件，他们公司养的不是一两个人\n- 广州-江湖-企业信息化：@Jimmy广州金融 认可，可以加下微信吗\n- Jimmy广州金融：我是基于这个坐的改动\n- 李一 深圳 东莞：期望你能把你的完美作品拿出来[抱拳][抱拳]\n- 阿泽~获客 -私域：再说了，我作品做到60分我就可以拿出来了，为啥要做到完美呢？\n- 阿泽~获客 -私域：不怕闷头干5个月，一回头发现市场变了。\n- 阿泽~获客 -私域：AI时代确实是最重要的\n- Jimmy广州金融：最好mvp试试水，多收集数据，发现情况不对，立马放弃。现在ai机会太多了，别浪费时间钻牛角尖\n- Jimmy广州金融：做好数据分析，灰度策略\n- 广州-符晋宁Lumen-医疗：gstack主要是有什么作用的\n- Jimmy广州金融：换个形容词，工程纪律审查，哈哈，就是换几个角色来从不同角度，审查你的需求和设计，",
+      "key_insights": [
+        "就哪怕是程序员，一个人去搞一个复杂的系统，也是不现实的，这也是为什么那些ERP软件，他们公司养的不是一两个人",
+        "最好mvp试试水，多收集数据，发现情况不对，立马放弃。现在ai机会太多了，别浪费时间钻牛角尖",
+        "换个形容词，工程纪律审查，哈哈，就是换几个角色来从不同角度，审查你的需求和设计，",
+        "gstack是harness 在设计阶段落地最好的实现吧，应该这么说",
+        "@郑州-明哥-seedance2.5海外模型 预感要创收几百万了"
+      ],
+      "tools_mentioned": [
+        "Arc",
+        "DeepSeek",
+        "Kimi",
+        "Obsidian",
+        "Sol",
+        "Trae"
+      ],
+      "action_items": [
+        "如果架构差不多的话，可以封装成Skill了。",
+        "@Jimmy广州金融 认可，可以加下微信吗",
+        "再说了，我作品做到60分我就可以拿出来了，为啥要做到完美呢？"
+      ],
+      "contributors": [
+        "杭州- Menger-操作系统-程序员",
+        "苏州-brandon-第三方检测",
+        "泉州-dachui_1-食品企业",
+        "阿泽-杭州-获客到私域转化ai流程",
+        "歆怡"
+      ],
+      "tags": [
+        "Arc",
+        "DeepSeek",
+        "Kimi",
+        "社群讨论"
+      ]
+    },
+    {
+      "title": "Claude",
+      "content": "- 刘国栋_Easy Industry：有人有做那个claude code么？现在卡在身份拍照了。\n- 大连-Zendo-制造业：Codex 抓紧 学习Claude，Claude 太不可控了。\n- 深圳-Tsing-前端：claude会话数据可以导入codex了\n- 成都-11-产品：claude又发邮件了\n- 广州+念之+ai内容运营：CLIProxyAPI有人用过这个反代吗，听说是利用ChatGPT Plus/Pro订阅额度，反向代理出标准API接口，让Claude Code、各类第三方AI客户端调用GPT-5.6 Sol/Terra/Luna\n- 悟虚骄：正是这种思维，Anthropic 才不开放给某些地区[捂脸]\n- 苏州-brandon-第三方检测：还让我们用claude  接5.6sol使用。。。官方发声\n- 广州-Fanny-数分：不是，Claude Code → CC Switch → DeepSeek\n- 太原 小皓 自动化：这段时间你没空用claude code了吧",
+      "key_insights": [
+        "Codex 抓紧 学习Claude，Claude 太不可控了。",
+        "CLIProxyAPI有人用过这个反代吗，听说是利用ChatGPT Plus/Pro订阅额度，反向代理出标准API接口，让Claude Code、各类第三方AI",
+        "不是，Claude Code → CC Switch → DeepSeek"
+      ],
+      "tools_mentioned": [
+        "Anthropic",
+        "ChatGPT",
+        "Claude",
+        "Claude Code",
+        "Codex",
+        "DeepSeek"
+      ],
+      "action_items": [
+        "claude会话数据可以导入codex了"
+      ],
+      "contributors": [
+        "刘国栋_Easy Industry",
+        "大连-Zendo-制造业",
+        "深圳-Tsing-前端",
+        "成都-11-产品",
+        "广州+念之+ai内容运营"
+      ],
+      "tags": [
+        "Anthropic",
+        "ChatGPT",
+        "Claude",
+        "社群讨论"
+      ]
+    },
+    {
+      "title": "AI工具",
+      "content": "- 重庆 空空大叔 数据深度研究：你的cursor用的4.5码\n- 阿泽-杭州-获客到私域转化ai流程：manus好像卖给腾讯了\n- 国际庄-Alexis-Agent办公：manus好像卖给腾讯了，小道消息？\n- 国际庄-Alexis-Agent办公：manus 太急于变现\n- 阿泽-杭州-获客到私域转化ai流程：腾讯有意牵头并购Manus股份\n- 郑州-docfat-职业教育研发：去年我比赛的时候，我朋友学长在做openmanus项目。\n- 郑州-docfat-职业教育研发：然后他和我讲，我才知道manus\n- 阿泽-杭州-获客到私域转化ai流程：搞私域绝对对manus创始人产品熟悉",
+      "key_insights": [
+        "群友围绕AI工具展开讨论"
+      ],
+      "tools_mentioned": [
+        "Cursor",
+        "Manus"
+      ],
+      "action_items": [],
+      "contributors": [
+        "阿泽-杭州-获客到私域转化ai流程",
+        "郑州-docfat-职业教育研发",
+        "国际庄-Alexis-Agent办公",
+        "西安-年少-互联网",
+        "重庆 空空大叔 数据深度研究"
+      ],
+      "tags": [
+        "Cursor",
+        "Manus",
+        "社群讨论",
+        "AI应用"
+      ]
+    },
+    {
+      "title": "本地部署",
+      "content": "- 济南-Ivan-设计：大家hermes都用什么模型？\n本地的qwen27b太慢\n9b不太聪明的样子\n- 广州_芒果_深度交互：本地现在除了服务器级别的都不怎么聪明\n- 东莞-King-电商：苹果M7瞄准本地万亿模型\n- Acai 快乐致信：给 gbrain 弄个 ollama -embedded 跑个 小模型 都能让风扇抄的要命",
+      "key_insights": [
+        "大家hermes都用什么模型？\n本地的qwen27b太慢\n9b不太聪明的样子",
+        "给 gbrain 弄个 ollama -embedded 跑个 小模型 都能让风扇抄的要命"
+      ],
+      "tools_mentioned": [
+        "Llama",
+        "Ollama",
+        "Qwen"
+      ],
+      "action_items": [],
+      "contributors": [
+        "Alex-企业智能体定制",
+        "济南-Ivan-设计",
+        "广州_芒果_深度交互",
+        "东莞-King-电商",
+        "Acai 快乐致信"
+      ],
+      "tags": [
+        "Llama",
+        "Ollama",
+        "Qwen",
+        "社群讨论"
+      ]
+    }
+  ],
+  "stats": {
+    "total_messages": 1528,
+    "active_members": 185
+  }
+}

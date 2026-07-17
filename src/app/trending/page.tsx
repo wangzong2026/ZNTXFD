@@ -40,9 +40,9 @@ export default function TrendingPage() {
       <div className="pointer-events-none absolute right-0 top-48 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(255,100,130,0.12)_0%,rgba(255,100,130,0)_70%)] blur-2xl" />
 
       <div className="relative mb-6">
-        <h1 className="text-2xl font-bold text-foreground">热门知识脉络</h1>
+        <h1 className="text-2xl font-bold text-foreground">话题脉络</h1>
         <p className="mt-2 text-sm text-foreground-muted">
-          从全部日报标签聚合出现频率，并关联回原始日报
+          从全部期刊标签聚合出现频率，并关联回原始期刊
         </p>
       </div>
 

@@ -1,10 +1,12 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 
 const tabs = [
   {
     label: "首页",
     href: "/",
-    active: true,
     icon: (
       <svg
         aria-hidden="true"
@@ -22,9 +24,8 @@ const tabs = [
     ),
   },
   {
-    label: "日报",
+    label: "期刊",
     href: "/daily",
-    active: false,
     icon: (
       <svg
         aria-hidden="true"
@@ -44,9 +45,8 @@ const tabs = [
     ),
   },
   {
-    label: "精华",
-    href: "/highlights",
-    active: false,
+    label: "弹药",
+    href: "/topics",
     icon: (
       <svg
         aria-hidden="true"
@@ -58,15 +58,16 @@ const tabs = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="m12 3 1.8 4.2L18 9l-4.2 1.8L12 15l-1.8-4.2L6 9l4.2-1.8Z" />
-        <path d="m18 14 .9 2.1L21 17l-2.1.9L18 20l-.9-2.1L15 17l2.1-.9Z" />
+        <path d="M4 6.5A2.5 2.5 0 0 1 6.5 4H20v14H6.5A2.5 2.5 0 0 0 4 20.5Z" />
+        <path d="M4 6.5v14" />
+        <path d="M8 8h8" />
+        <path d="M8 12h7" />
       </svg>
     ),
   },
   {
-    label: "热门",
+    label: "话题",
     href: "/trending",
-    active: false,
     icon: (
       <svg
         aria-hidden="true"
@@ -84,8 +85,7 @@ const tabs = [
   },
   {
     label: "搜索",
-    href: "/",
-    active: false,
+    href: "/search",
     icon: (
       <svg
         aria-hidden="true"
@@ -104,21 +104,37 @@ const tabs = [
   },
 ];
 
+function isActivePath(pathname: string, href: string) {
+  if (href === "/") {
+    return pathname === "/";
+  }
+
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 export function BottomNav() {
+  const pathname = usePathname();
+
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 grid h-16 grid-cols-5 border-t border-border/80 bg-background/80 backdrop-blur-glass md:hidden">
-      {tabs.map((tab) => (
-        <Link
-          key={tab.label}
-          href={tab.href}
-          className={`flex flex-col items-center justify-center gap-1 text-xs font-medium ${
-            tab.active ? "text-accent" : "text-foreground-muted"
-          }`}
-        >
-          {tab.icon}
-          <span>{tab.label}</span>
-        </Link>
-      ))}
+    <nav className="fixed bottom-0 left-0 right-0 z-50 grid h-[72px] grid-cols-5 border-t border-white/[0.06] bg-background/85 px-1 backdrop-blur-[20px] md:hidden">
+      {tabs.map((tab) => {
+        const active = isActivePath(pathname, tab.href);
+
+        return (
+          <Link
+            key={tab.label}
+            href={tab.href}
+            className={`flex flex-col items-center justify-center gap-1 rounded-2xl text-[13px] font-semibold transition-colors ${
+              active
+                ? "bg-accent/12 text-accent"
+                : "text-foreground-muted hover:text-foreground"
+            }`}
+          >
+            {tab.icon}
+            <span>{tab.label}</span>
+          </Link>
+        );
+      })}
     </nav>
   );
 }

@@ -80,7 +80,7 @@ export function TrendingClient({ tagSummaries }: TrendingClientProps) {
                 </h2>
               </div>
               <span className="mono-num text-sm text-foreground-muted">
-                {selected.count} 篇日报
+                {selected.count} 期期刊
               </span>
             </div>
             <div className="space-y-3">
