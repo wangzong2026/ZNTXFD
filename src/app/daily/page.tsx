@@ -41,6 +41,9 @@ export default function DailyListPage() {
         <div className="relative grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {cards.map((card) => {
             const status = getDigestStatus(card.date);
+            const digestLabel = status.available
+              ? `${status.readyCount}/${status.totalCount}`
+              : "未上线";
             return (
               <Link
                 key={card.date}
@@ -53,12 +56,14 @@ export default function DailyListPage() {
                   </time>
                   <span
                     className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                      status.complete
+                      !status.available
+                        ? "bg-white/[0.05] text-foreground-disabled"
+                        : status.complete
                         ? "bg-success/10 text-success"
                         : "bg-accent/10 text-accent"
                     }`}
                   >
-                    群精华 {status.readyCount}/{status.totalCount}
+                    群精华 {digestLabel}
                   </span>
                 </div>
 

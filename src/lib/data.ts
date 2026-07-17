@@ -117,6 +117,7 @@ export type DigestGroup = {
   key: string;
   label: string;
   name: string;
+  activeFrom: string;
 };
 
 export type DigestImage = DigestGroup & {
@@ -125,11 +126,36 @@ export type DigestImage = DigestGroup & {
 };
 
 export const DIGEST_GROUPS: DigestGroup[] = [
-  { key: "group1", label: "一群", name: "智能体先锋队一群" },
-  { key: "group2", label: "二群", name: "智能体先锋队二群" },
-  { key: "group3", label: "三群", name: "智能体先锋队三群" },
-  { key: "group4", label: "四群", name: "智能体先锋队四群" },
-  { key: "group5", label: "五群", name: "智能体先锋队五群" },
+  {
+    key: "group1",
+    label: "一群",
+    name: "智能体先锋队一群",
+    activeFrom: "2026-06-26",
+  },
+  {
+    key: "group2",
+    label: "二群",
+    name: "智能体先锋队二群",
+    activeFrom: "2026-06-26",
+  },
+  {
+    key: "group3",
+    label: "三群",
+    name: "智能体先锋队三群",
+    activeFrom: "2026-06-26",
+  },
+  {
+    key: "group4",
+    label: "四群",
+    name: "智能体先锋队四群",
+    activeFrom: "2026-06-26",
+  },
+  {
+    key: "group5",
+    label: "五群",
+    name: "智能体先锋队五群",
+    activeFrom: "2026-07-15",
+  },
 ];
 
 export function getDailyIndex(): DailyIndexItem[] {
@@ -158,16 +184,23 @@ export function getDailyReport(date: string): DailyReport {
   return raw as DailyReport;
 }
 
+export function getActiveDigestGroups(date: string): DigestGroup[] {
+  return DIGEST_GROUPS.filter((group) => date >= group.activeFrom);
+}
+
 export function getDigestImages(date: string): DigestImage[] {
   const dir = path.join(process.cwd(), "public", "digest-images", date);
 
-  return DIGEST_GROUPS.map((group) => {
-    const src = `/digest-images/${date}/${group.key}.png`;
-    const filePath = path.join(dir, `${group.key}.png`);
+  return getActiveDigestGroups(date).map((group) => {
+    const extensions = ["avif", "png"];
+    const extension = extensions.find((ext) =>
+      fs.existsSync(path.join(dir, `${group.key}.${ext}`)),
+    );
+    const src = `/digest-images/${date}/${group.key}.${extension ?? "avif"}`;
     return {
       ...group,
       src,
-      exists: fs.existsSync(filePath),
+      exists: Boolean(extension),
     };
   });
 }
@@ -175,11 +208,13 @@ export function getDigestImages(date: string): DigestImage[] {
 export function getDigestStatus(date: string) {
   const images = getDigestImages(date);
   const readyCount = images.filter((image) => image.exists).length;
+  const totalCount = images.length;
   return {
     images,
     readyCount,
-    totalCount: images.length,
-    complete: readyCount === images.length,
+    totalCount,
+    available: totalCount > 0,
+    complete: totalCount > 0 && readyCount === totalCount,
   };
 }
 

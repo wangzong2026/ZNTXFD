@@ -160,6 +160,10 @@ export default async function DailyPage({ params }: DailyPageProps) {
 
   const images = getDigestImages(date);
   const readyImages = images.filter((image) => image.exists);
+  const digestValue =
+    images.length > 0 ? `${readyImages.length}/${images.length}` : "未上线";
+  const digestReadyLabel =
+    images.length > 0 ? `${readyImages.length}/${images.length} 已就绪` : "未上线";
   const reportNeedsRefine = isRawishReport(report);
   const dateIndex = allDates.indexOf(date);
   const previousDate = dateIndex > 0 ? allDates[dateIndex - 1] : null;
@@ -171,9 +175,9 @@ export default async function DailyPage({ params }: DailyPageProps) {
   const stats = [
     {
       label: "群精华",
-      value: `${readyImages.length}/${images.length}`,
+      value: digestValue,
       type: "groups" as const,
-      tone: "text-accent",
+      tone: images.length > 0 ? "text-accent" : "text-foreground-disabled",
     },
     {
       label: "消息数",
@@ -255,57 +259,63 @@ export default async function DailyPage({ params }: DailyPageProps) {
           <div>
             <h2 className="text-xl font-bold text-foreground">多群精华长图</h2>
             <p className="mt-1 text-sm text-foreground-muted">
-              当前按五个社群归档展示；缺失项会明确标出。
+              当前按当期已上线社群归档展示；未上线的群不会计入缺失。
             </p>
           </div>
           <span className="mono-num text-sm text-foreground-muted">
-            {readyImages.length}/{images.length} 已就绪
+            {digestReadyLabel}
           </span>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {images.map((img) => (
-            <div
-              key={img.key}
-              className={`glass-card card-hover overflow-hidden hover:border-white/[0.14] ${
-                img.exists ? "" : "border-danger/20 bg-danger/[0.04]"
-              }`}
-            >
-              <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3">
-                <span className="text-sm font-semibold text-accent">
-                  {img.name}
-                </span>
-                <span
-                  className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
-                    img.exists
-                      ? "bg-success/10 text-success"
-                      : "bg-danger/10 text-danger"
-                  }`}
-                >
-                  {img.exists ? "已生成" : "缺失"}
-                </span>
-              </div>
-
-              {img.exists ? (
-                <a href={img.src} target="_blank" rel="noopener noreferrer">
-                  <div className="max-h-[760px] overflow-hidden bg-background">
-                    <Image
-                      src={img.src}
-                      alt={`${img.name} ${formatDate(date)} 群精华`}
-                      width={1290}
-                      height={18000}
-                      className="w-full"
-                    />
-                  </div>
-                </a>
-              ) : (
-                <div className="flex min-h-[260px] items-center justify-center px-6 text-center text-sm leading-7 text-foreground-muted">
-                  这一群的精华图片还没有进入网站素材目录。补齐后会自动出现在本期。
+        {images.length > 0 ? (
+          <div className="grid gap-4 md:grid-cols-2">
+            {images.map((img) => (
+              <div
+                key={img.key}
+                className={`glass-card card-hover overflow-hidden hover:border-white/[0.14] ${
+                  img.exists ? "" : "border-danger/20 bg-danger/[0.04]"
+                }`}
+              >
+                <div className="flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3">
+                  <span className="text-sm font-semibold text-accent">
+                    {img.name}
+                  </span>
+                  <span
+                    className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                      img.exists
+                        ? "bg-success/10 text-success"
+                        : "bg-danger/10 text-danger"
+                    }`}
+                  >
+                    {img.exists ? "已生成" : "缺失"}
+                  </span>
                 </div>
-              )}
-            </div>
-          ))}
-        </div>
+
+                {img.exists ? (
+                  <a href={img.src} target="_blank" rel="noopener noreferrer">
+                    <div className="max-h-[760px] overflow-hidden bg-background">
+                      <Image
+                        src={img.src}
+                        alt={`${img.name} ${formatDate(date)} 群精华`}
+                        width={1290}
+                        height={18000}
+                        className="w-full"
+                      />
+                    </div>
+                  </a>
+                ) : (
+                  <div className="flex min-h-[260px] items-center justify-center px-6 text-center text-sm leading-7 text-foreground-muted">
+                    这一群的精华图片还没有进入网站素材目录。补齐后会自动出现在本期。
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="glass-card px-6 py-10 text-center text-sm leading-7 text-foreground-muted">
+            这一期早于群精华归档体系上线时间，暂不计入缺失。
+          </div>
+        )}
       </section>
 
       <section className="relative">
