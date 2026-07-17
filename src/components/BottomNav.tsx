@@ -45,8 +45,8 @@ const tabs = [
     ),
   },
   {
-    label: "弹药",
-    href: "/topics",
+    label: "知识",
+    href: "/knowledge",
     icon: (
       <svg
         aria-hidden="true"
@@ -66,8 +66,8 @@ const tabs = [
     ),
   },
   {
-    label: "话题",
-    href: "/trending",
+    label: "提问",
+    href: "/questions",
     icon: (
       <svg
         aria-hidden="true"
@@ -79,7 +79,9 @@ const tabs = [
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <path d="M12 22c3.5-1.5 6-4.4 6-8a7.2 7.2 0 0 0-3.5-6.2c-.1 2-1.1 3.2-2.4 4.2.3-3.2-1.2-5.8-4.1-8C8.2 8.2 4 10 4 14c0 3.6 2.5 6.5 8 8Z" />
+        <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+        <path d="M9 8h6" />
+        <path d="M9 12h4" />
       </svg>
     ),
   },

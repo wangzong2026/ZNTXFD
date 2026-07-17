@@ -64,7 +64,7 @@ function DailyIcon() {
   );
 }
 
-function TopicsIcon() {
+function KnowledgeIcon() {
   return (
     <svg
       aria-hidden="true"
@@ -84,7 +84,7 @@ function TopicsIcon() {
   );
 }
 
-function TrendingIcon() {
+function QuestionIcon() {
   return (
     <svg
       aria-hidden="true"
@@ -96,7 +96,9 @@ function TrendingIcon() {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M12 22c3.5-1.5 6-4.4 6-8a7.2 7.2 0 0 0-3.5-6.2c-.1 2-1.1 3.2-2.4 4.2.3-3.2-1.2-5.8-4.1-8C8.2 8.2 4 10 4 14c0 3.6 2.5 6.5 8 8Z" />
+      <path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4Z" />
+      <path d="M9 8h6" />
+      <path d="M9 12h4" />
     </svg>
   );
 }
@@ -122,8 +124,8 @@ function SearchIcon({ className = "h-5 w-5" }: { className?: string }) {
 const navItems = [
   { label: "首页", href: "/", icon: <HomeIcon /> },
   { label: "期刊", href: "/daily", icon: <DailyIcon /> },
-  { label: "弹药库", href: "/topics", icon: <TopicsIcon /> },
-  { label: "话题", href: "/trending", icon: <TrendingIcon /> },
+  { label: "知识库", href: "/knowledge", icon: <KnowledgeIcon /> },
+  { label: "提问", href: "/questions", icon: <QuestionIcon /> },
   { label: "搜索", href: "/search", icon: <SearchIcon /> },
 ];
 

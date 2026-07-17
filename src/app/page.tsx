@@ -6,6 +6,8 @@ import {
   getDailyReport,
   getDigestStatus,
   getKnowledgeTopics,
+  getQuestionItems,
+  getTrustedKnowledgeItems,
 } from "@/lib/data";
 import type { DailyIndexItem, DailyReport, KnowledgeTopic } from "@/lib/data";
 
@@ -137,6 +139,8 @@ export default function Home() {
   const latestReport = reports[0] ?? null;
   const digestStatus = latest ? getDigestStatus(latest.date) : null;
   const topics = getKnowledgeTopics();
+  const trustedItems = getTrustedKnowledgeItems();
+  const questions = getQuestionItems();
   const stats = buildAssetStats(dailyCards, reports);
   const recentCards = dailyCards.slice(0, 4);
   const latestTopics = latestReport?.topics.slice(0, 5) ?? [];
@@ -161,29 +165,29 @@ export default function Home() {
                 社群知识沉淀
               </p>
               <h1 className="mt-5 max-w-4xl text-3xl font-bold leading-tight text-foreground md:text-5xl md:leading-tight">
-                智能体先锋队的 AI 实战弹药库
+                智能体先锋队的可信 AI 实战知识库
               </h1>
               <p className="mt-5 max-w-3xl text-base leading-8 text-foreground-muted">
-                这里不是追实时热闹，而是把五个智能体社群里的观点、工具、教程、案例、踩坑和高价值发言沉淀成可检索、可复用的知识资产。
+                这里不是追实时热闹，而是把五个智能体社群里的观点、工具、教程、案例和踩坑，整理成带来源、证据、复现状态和可信度的知识资产。
               </p>
               <div className="mt-7 flex flex-wrap gap-3">
                 <Link
-                  href="/topics"
+                  href="/knowledge"
                   className="inline-flex h-12 items-center rounded-full bg-accent px-6 text-sm font-bold text-background transition-transform hover:-translate-y-0.5 hover:bg-accent-light"
                 >
-                  进入社群弹药库 →
+                  进入可信知识库 →
+                </Link>
+                <Link
+                  href="/questions"
+                  className="inline-flex h-12 items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-6 text-sm font-bold text-foreground transition-transform hover:-translate-y-0.5 hover:border-white/[0.16]"
+                >
+                  查看提问引用
                 </Link>
                 <Link
                   href={`/daily/${latest.date}`}
                   className="inline-flex h-12 items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-6 text-sm font-bold text-foreground transition-transform hover:-translate-y-0.5 hover:border-white/[0.16]"
                 >
                   查看最新一期
-                </Link>
-                <Link
-                  href="/search"
-                  className="inline-flex h-12 items-center rounded-full border border-white/[0.08] bg-white/[0.03] px-6 text-sm font-bold text-foreground transition-transform hover:-translate-y-0.5 hover:border-white/[0.16]"
-                >
-                  搜索内容
                 </Link>
               </div>
             </article>
@@ -215,24 +219,24 @@ export default function Home() {
             </div>
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
               <AssetCard
-                title="观点库"
-                description="群友对模型、Agent、产品、商业化和行业趋势的判断与共识。"
-                value={`${stats.insightCount}`}
-                href="/topics"
+                title="可信知识"
+                description="每条结论带来源、证据、复现状态、版本和可信度评分。"
+                value={`${trustedItems.length}`}
+                href="/knowledge"
                 tone="text-accent"
               />
               <AssetCard
-                title="工具/教程"
-                description="讨论中出现过的工具、脚本、工作流、部署路径和实操教程线索。"
-                value={`${stats.toolCount}`}
-                href="/search"
+                title="复现报告"
+                description="记录成功、失败、环境、输出和适用边界，避免只看二手经验。"
+                value={`${trustedItems.reduce((sum, item) => sum + item.reproductionTotal, 0)}`}
+                href="/knowledge"
                 tone="text-success"
               />
               <AssetCard
-                title="案例库"
-                description="跨境、电商、本地生活、内容生产、自动化等真实业务场景。"
-                value="持续"
-                href="/topics/商业化"
+                title="提问引用"
+                description="普通人提问，AI 先引用可信知识回答，专家再补充判断。"
+                value={`${questions.length}`}
+                href="/questions"
                 tone="text-purple"
               />
               <AssetCard
@@ -250,6 +254,71 @@ export default function Home() {
                 tone="text-foreground"
               />
             </div>
+          </section>
+
+          <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+            <article className="glass-card card-hover p-5 hover:border-white/[0.14]">
+              <div className="mb-5 flex flex-wrap items-end justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-foreground">
+                    可信知识 MVP
+                  </h2>
+                  <p className="mt-2 text-sm leading-6 text-foreground-muted">
+                    先把内容可信化：AI 初筛、证据链、复现状态、提问引用四步跑通。
+                  </p>
+                </div>
+                <Link href="/knowledge" className="text-sm font-semibold text-accent">
+                  全部知识 →
+                </Link>
+              </div>
+              <div className="grid gap-3 md:grid-cols-3">
+                {trustedItems.slice(0, 3).map((item) => (
+                  <Link
+                    key={item.slug}
+                    href={`/knowledge/${item.slug}`}
+                    className="rounded-[14px] border border-white/[0.06] bg-white/[0.025] p-4 transition-all hover:-translate-y-0.5 hover:border-white/[0.14]"
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-xs font-bold text-accent">{item.category}</span>
+                      <span className="mono-num text-sm font-bold text-success">
+                        {item.trustScore}
+                      </span>
+                    </div>
+                    <h3 className="mt-3 line-clamp-2 text-sm font-bold leading-6 text-foreground">
+                      {item.title}
+                    </h3>
+                    <p className="mt-3 text-xs leading-5 text-foreground-muted">
+                      证据 {item.evidenceCount} · 复现 {item.reproductionPassed}/{item.reproductionTotal} · 引用 {item.citationCount}
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </article>
+
+            <article className="glass-card card-hover p-5 hover:border-white/[0.14]">
+              <div className="mb-5 flex items-center justify-between gap-4">
+                <h2 className="text-lg font-bold text-foreground">提问引用</h2>
+                <Link href="/questions" className="text-sm font-semibold text-accent">
+                  进入 →
+                </Link>
+              </div>
+              <div className="space-y-3">
+                {questions.slice(0, 3).map((question) => (
+                  <Link
+                    key={question.slug}
+                    href="/questions"
+                    className="block rounded-[14px] border border-white/[0.06] bg-white/[0.025] p-4 transition-all hover:-translate-y-0.5 hover:border-white/[0.14]"
+                  >
+                    <h3 className="line-clamp-2 text-sm font-bold leading-6 text-foreground">
+                      {question.title}
+                    </h3>
+                    <p className="mt-2 text-xs text-foreground-muted">
+                      {question.answers} 个回答 · {question.votes}% 热度
+                    </p>
+                  </Link>
+                ))}
+              </div>
+            </article>
           </section>
 
           <section className="grid gap-4 lg:grid-cols-[360px_minmax(0,1fr)]">

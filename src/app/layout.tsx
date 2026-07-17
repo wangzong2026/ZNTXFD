@@ -5,8 +5,8 @@ import { BottomNav } from "@/components/BottomNav";
 import { TopBar } from "@/components/TopBar";
 
 export const metadata: Metadata = {
-  title: "智能体先锋队弹药库",
-  description: "智能体先锋队社群 AI 实战内容沉淀平台",
+  title: "智能体先锋队可信知识库",
+  description: "智能体先锋队社群 AI 实战内容、可信知识和复现验证平台",
 };
 
 export default function RootLayout({
