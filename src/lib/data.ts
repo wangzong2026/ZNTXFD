@@ -130,25 +130,25 @@ export const DIGEST_GROUPS: DigestGroup[] = [
     key: "group1",
     label: "一群",
     name: "智能体先锋队一群",
-    activeFrom: "2026-06-26",
+    activeFrom: "2026-05-17",
   },
   {
     key: "group2",
     label: "二群",
     name: "智能体先锋队二群",
-    activeFrom: "2026-06-26",
+    activeFrom: "2026-06-02",
   },
   {
     key: "group3",
     label: "三群",
     name: "智能体先锋队三群",
-    activeFrom: "2026-06-26",
+    activeFrom: "2026-06-14",
   },
   {
     key: "group4",
     label: "四群",
     name: "智能体先锋队四群",
-    activeFrom: "2026-06-26",
+    activeFrom: "2026-06-20",
   },
   {
     key: "group5",
@@ -224,6 +224,9 @@ export function isRawishReport(report: DailyReport) {
 
   const rawishCount = topics.filter((topic) => {
     const content = topic.content ?? "";
+    if (content.includes("### 关键沉淀") && content.includes("### 证据原话")) {
+      return false;
+    }
     return content.trim().startsWith("- ") || content.split("：").length >= 7;
   }).length;
 
@@ -283,8 +286,12 @@ export function getKnowledgeTopics(): KnowledgeTopic[] {
   }
 
   const topics: KnowledgeTopic[] = [];
+  const usedSlugs = new Map<string, number>();
   for (const [name, data] of tagMap) {
-    const slug = name;
+    const baseSlug = makeSlug(name, `topic-${topics.length + 1}`).toLowerCase();
+    const count = usedSlugs.get(baseSlug) ?? 0;
+    usedSlugs.set(baseSlug, count + 1);
+    const slug = count === 0 ? baseSlug : `${baseSlug}-${count + 1}`;
     const relatedTags = [...data.coTags.entries()]
       .sort((a, b) => b[1] - a[1])
       .slice(0, 8)

@@ -161,9 +161,9 @@ export default async function DailyPage({ params }: DailyPageProps) {
   const images = getDigestImages(date);
   const readyImages = images.filter((image) => image.exists);
   const digestValue =
-    images.length > 0 ? `${readyImages.length}/${images.length}` : "未上线";
+    images.length > 0 ? `${readyImages.length}/${images.length}` : "未纳入";
   const digestReadyLabel =
-    images.length > 0 ? `${readyImages.length}/${images.length} 已就绪` : "未上线";
+    images.length > 0 ? `${readyImages.length}/${images.length} 已就绪` : "未纳入";
   const reportNeedsRefine = isRawishReport(report);
   const dateIndex = allDates.indexOf(date);
   const previousDate = dateIndex > 0 ? allDates[dateIndex - 1] : null;
@@ -259,7 +259,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
           <div>
             <h2 className="text-xl font-bold text-foreground">多群精华长图</h2>
             <p className="mt-1 text-sm text-foreground-muted">
-              当前按当期已上线社群归档展示；未上线的群不会计入缺失。
+              当前按当期已归档社群展示；未纳入运营归档的群不参与统计。
             </p>
           </div>
           <span className="mono-num text-sm text-foreground-muted">
@@ -313,7 +313,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
           </div>
         ) : (
           <div className="glass-card px-6 py-10 text-center text-sm leading-7 text-foreground-muted">
-            这一期早于群精华归档体系上线时间，暂不计入缺失。
+            这一期早于群精华运营归档体系纳入时间，暂不参与统计。
           </div>
         )}
       </section>
@@ -390,7 +390,7 @@ export default async function DailyPage({ params }: DailyPageProps) {
 
                   <details className="rounded-[14px] border border-white/[0.06] bg-white/[0.02] p-4">
                     <summary className="cursor-pointer text-sm font-semibold text-foreground-muted transition-colors hover:text-accent">
-                      展开原始整理文本
+                      展开知识正文
                     </summary>
                     <div className="mt-4 border-t border-white/[0.06] pt-4">
                       <MarkdownContent content={topic.content} />

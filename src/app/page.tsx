@@ -144,12 +144,9 @@ export default function Home() {
   const stats = buildAssetStats(dailyCards, reports);
   const recentCards = dailyCards.slice(0, 4);
   const latestTopics = latestReport?.topics.slice(0, 5) ?? [];
-  const pilotDigest = {
-    date: "2026-07-17",
-    image: "/digest-images/2026-07-17/group5.png",
-    label: "五群试运行",
-    note: "北京时间 01:19-12:01，进行中",
-  };
+  const group5Digest =
+    digestStatus?.images.find((image) => image.key === "group5" && image.exists) ??
+    null;
 
   return (
     <section className="relative overflow-hidden">
@@ -248,7 +245,7 @@ export default function Home() {
               />
               <AssetCard
                 title="期刊归档"
-                description="每期五群精华、话题索引和原始整理文本，按日期长期保存。"
+                description="每期五群精华、话题索引和知识正文，按日期长期保存。"
                 value={`${stats.issueCount}`}
                 href="/daily"
                 tone="text-foreground"
@@ -396,35 +393,34 @@ export default function Home() {
                   </Link>
                 ))}
               </div>
-              <div className="mt-4 border-t border-white/[0.06] pt-4">
-                <a
-                  href={pilotDigest.image}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="group grid gap-4 rounded-[14px] border border-white/[0.06] bg-white/[0.025] p-3 transition-all hover:-translate-y-0.5 hover:border-white/[0.14] md:grid-cols-[96px_minmax(0,1fr)]"
-                >
-                  <div className="relative aspect-[3/4] overflow-hidden rounded-[10px] border border-white/[0.06] bg-white/[0.03]">
-                    <Image
-                      src={pilotDigest.image}
-                      alt={`${pilotDigest.label} ${formatDate(pilotDigest.date)}`}
-                      fill
-                      sizes="96px"
-                      className="object-cover object-top"
-                    />
-                  </div>
-                  <div className="flex min-w-0 flex-col justify-center">
-                    <p className="text-xs font-bold tracking-[0.18em] text-accent">
-                      进行中
-                    </p>
-                    <h3 className="mt-2 text-sm font-bold text-foreground group-hover:text-accent md:text-base">
-                      {pilotDigest.label} · {formatDate(pilotDigest.date)}
-                    </h3>
-                    <p className="mt-2 text-xs leading-5 text-foreground-muted md:text-sm">
-                      {pilotDigest.note}，先作为试运行长图展示，完整归档仍以已沉淀期刊为准。
-                    </p>
-                  </div>
-                </a>
-              </div>
+              {group5Digest ? (
+                <div className="mt-4 border-t border-white/[0.06] pt-4">
+                  <a
+                    href={group5Digest.src}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="group grid gap-4 rounded-[14px] border border-white/[0.06] bg-white/[0.025] p-3 transition-all hover:-translate-y-0.5 hover:border-white/[0.14] md:grid-cols-[96px_minmax(0,1fr)]"
+                  >
+                    <div className="relative aspect-[3/4] overflow-hidden rounded-[10px] border border-white/[0.06] bg-white/[0.03]">
+                      <Image
+                        src={group5Digest.src}
+                        alt={`${group5Digest.name} ${formatDate(latest.date)} 群精华`}
+                        fill
+                        sizes="96px"
+                        className="object-cover object-top"
+                      />
+                    </div>
+                    <div className="flex min-w-0 flex-col justify-center">
+                      <h3 className="text-sm font-bold text-foreground group-hover:text-accent md:text-base">
+                        {group5Digest.label} · {formatDate(latest.date)}
+                      </h3>
+                      <p className="mt-2 text-xs leading-5 text-foreground-muted md:text-sm">
+                        已纳入正式五群精华归档，和一至四群同口径进入本期沉淀。
+                      </p>
+                    </div>
+                  </a>
+                </div>
+              ) : null}
             </article>
           </section>
 

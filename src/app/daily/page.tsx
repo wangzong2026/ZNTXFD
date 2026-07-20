@@ -43,7 +43,7 @@ export default function DailyListPage() {
             const status = getDigestStatus(card.date);
             const digestLabel = status.available
               ? `${status.readyCount}/${status.totalCount}`
-              : "未上线";
+              : "未纳入";
             return (
               <Link
                 key={card.date}
