@@ -125,6 +125,80 @@ export type DigestImage = DigestGroup & {
   src: string;
 };
 
+export type TokenRankBoard = {
+  key: string;
+  label: string;
+};
+
+export type TokenRankRange = {
+  key: string;
+  label: string;
+};
+
+export type TokenRankMetric = {
+  key: "total" | "norm" | "cost";
+  label: string;
+  description: string;
+};
+
+export type TokenRankEntry = {
+  rank: number;
+  userId: number;
+  name: string;
+  role: string;
+  score: number;
+  norm: number;
+  cost: number;
+  streakDays: number;
+  deviceCount: number;
+  anomaly: boolean;
+  byTool: Record<string, number>;
+  byModel: Record<string, number>;
+};
+
+export type TokenRankMySummary = {
+  userId: number;
+  name: string;
+  public: boolean;
+  lastSync: string;
+  activeDays: number;
+  deviceCount: number;
+  today: {
+    total: number;
+    norm: number;
+    cost: number;
+  };
+  daily: {
+    date: string;
+    total: number;
+    cost: number;
+  }[];
+};
+
+export type TokenRankData = {
+  updatedAt: string;
+  totalMembers: number;
+  syncIntervalMinutes: number;
+  boards: TokenRankBoard[];
+  ranges: TokenRankRange[];
+  metrics: TokenRankMetric[];
+  entries: TokenRankEntry[];
+  mySummary: TokenRankMySummary;
+  connect: {
+    installMac: string;
+    installWin: string;
+    agentPrompt: string;
+  };
+  diagnosePrompt: string;
+  pricing: {
+    unit: string;
+    snapshotDate: string;
+    sourceName: string;
+    formula: string;
+    notes: string[];
+  };
+};
+
 export const DIGEST_GROUPS: DigestGroup[] = [
   {
     key: "group1",
@@ -162,6 +236,12 @@ export function getDailyIndex(): DailyIndexItem[] {
   const filePath = path.join(process.cwd(), "data", "index.json");
   const content = fs.readFileSync(filePath, "utf8");
   return JSON.parse(content) as DailyIndexItem[];
+}
+
+export function getTokenRankData(): TokenRankData {
+  const filePath = path.join(process.cwd(), "data", "token-rank.json");
+  const content = fs.readFileSync(filePath, "utf8");
+  return JSON.parse(content) as TokenRankData;
 }
 
 export function getSearchIndex(): SearchIndexItem[] {

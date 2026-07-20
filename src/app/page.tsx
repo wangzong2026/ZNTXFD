@@ -214,7 +214,7 @@ export default function Home() {
                 </p>
               </div>
             </div>
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
               <AssetCard
                 title="可信知识"
                 description="每条结论带来源、证据、复现状态、版本和可信度评分。"
@@ -242,6 +242,13 @@ export default function Home() {
                 value={`${stats.contributorCount}`}
                 href="/search"
                 tone="text-pink"
+              />
+              <AssetCard
+                title="Token 消耗榜"
+                description="按工具、时间和成本口径统计群友 AI 编程工具 token 消耗。"
+                value="NEW"
+                href="/token-rank"
+                tone="text-accent"
               />
               <AssetCard
                 title="期刊归档"

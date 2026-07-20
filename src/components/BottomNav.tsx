@@ -66,6 +66,28 @@ const tabs = [
     ),
   },
   {
+    label: "Token",
+    href: "/token-rank",
+    icon: (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="h-5 w-5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M4 7h16" />
+        <path d="M4 12h10" />
+        <path d="M4 17h7" />
+        <path d="M18 11v8" />
+        <path d="m15 16 3 3 3-3" />
+      </svg>
+    ),
+  },
+  {
     label: "提问",
     href: "/questions",
     icon: (
@@ -118,7 +140,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 grid h-[72px] grid-cols-5 border-t border-white/[0.06] bg-background/85 px-1 backdrop-blur-[20px] md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 grid h-[72px] grid-cols-6 border-t border-white/[0.06] bg-background/85 px-1 backdrop-blur-[20px] md:hidden">
       {tabs.map((tab) => {
         const active = isActivePath(pathname, tab.href);
 
@@ -126,7 +148,7 @@ export function BottomNav() {
           <Link
             key={tab.label}
             href={tab.href}
-            className={`flex flex-col items-center justify-center gap-1 rounded-2xl text-[13px] font-semibold transition-colors ${
+            className={`flex flex-col items-center justify-center gap-1 rounded-2xl text-[12px] font-semibold transition-colors ${
               active
                 ? "bg-accent/12 text-accent"
                 : "text-foreground-muted hover:text-foreground"

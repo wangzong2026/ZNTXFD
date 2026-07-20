@@ -103,6 +103,27 @@ function QuestionIcon() {
   );
 }
 
+function TokenIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="h-5 w-5"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M4 7h16" />
+      <path d="M4 12h10" />
+      <path d="M4 17h7" />
+      <path d="M18 11v8" />
+      <path d="m15 16 3 3 3-3" />
+    </svg>
+  );
+}
+
 function SearchIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg
@@ -125,6 +146,7 @@ const navItems = [
   { label: "首页", href: "/", icon: <HomeIcon /> },
   { label: "期刊", href: "/daily", icon: <DailyIcon /> },
   { label: "知识库", href: "/knowledge", icon: <KnowledgeIcon /> },
+  { label: "Token榜", href: "/token-rank", icon: <TokenIcon /> },
   { label: "提问", href: "/questions", icon: <QuestionIcon /> },
   { label: "搜索", href: "/search", icon: <SearchIcon /> },
 ];
@@ -165,7 +187,7 @@ export function TopBar() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`inline-flex h-10 items-center gap-2 rounded-full px-4 text-[15px] font-semibold transition-colors ${
+                className={`inline-flex h-10 items-center gap-2 rounded-full px-3 text-[15px] font-semibold transition-colors lg:px-4 ${
                   active
                     ? "bg-accent/12 text-accent"
                     : "text-foreground-muted hover:bg-white/[0.04] hover:text-foreground"
