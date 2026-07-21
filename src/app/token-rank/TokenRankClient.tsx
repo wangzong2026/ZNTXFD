@@ -121,8 +121,7 @@ function buildRankedEntries(
   board: string,
   metric: MetricKey,
 ): RankedEntry[] {
-  const adjusted = entries
-    .map((entry) => {
+  const adjusted = entries.map((entry) => {
       const boardTokens =
         board === "total" ? entry.score : (entry.byTool[board] ?? 0);
       const boardRatio = entry.score > 0 ? boardTokens / entry.score : 0;
@@ -134,8 +133,7 @@ function buildRankedEntries(
         displayNorm: board === "total" ? entry.norm : entry.norm * boardRatio,
         displayCost: board === "total" ? entry.cost : entry.cost * boardRatio,
       };
-    })
-    .filter((entry) => entry.displayScore > 0);
+    });
 
   return adjusted
     .sort((a, b) => metricScore(b, metric) - metricScore(a, metric))
@@ -415,7 +413,7 @@ function LeaderboardView({
       <section className="space-y-2">
         <div className="flex flex-wrap items-baseline gap-2">
           <h2 className="text-xl font-bold text-foreground">
-            {rangeLabel}{boardLabel}
+            {rangeLabel}{boardLabel} Top 20
           </h2>
           <p className="text-sm text-foreground-muted">
             全员累计 {activeMetric === "cost" ? `≈${formatUsd(totalCost)}` : `${formatTokens(totalTokens)} tokens`}
@@ -442,6 +440,7 @@ function LeaderboardView({
             const topTools = Object.entries(entry.byTool)
               .sort((a, b) => b[1] - a[1])
               .slice(0, 3);
+            const hasUsage = entry.displayScore > 0;
 
             return (
               <li
@@ -449,7 +448,9 @@ function LeaderboardView({
                 className={`grid gap-3 rounded-[16px] border p-4 transition-all hover:-translate-y-0.5 md:grid-cols-[56px_1fr_auto] md:items-center ${
                   entry.userId === data.mySummary.userId
                     ? "border-accent/30 bg-accent/[0.07]"
-                    : "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.14]"
+                    : hasUsage
+                      ? "border-white/[0.06] bg-white/[0.025] hover:border-white/[0.14]"
+                      : "border-white/[0.04] bg-white/[0.015] opacity-70 hover:border-white/[0.1]"
                 }`}
               >
                 <div className="flex items-center gap-3 md:block">
@@ -474,7 +475,7 @@ function LeaderboardView({
                     </div>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
-                    {topTools.map(([tool, value]) => (
+                    {topTools.length > 0 ? topTools.map(([tool, value]) => (
                       <span
                         key={tool}
                         className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.035] px-2.5 py-1 text-xs text-foreground-muted"
@@ -485,7 +486,11 @@ function LeaderboardView({
                         />
                         {toolLabel(tool)} {formatTokens(value)}
                       </span>
-                    ))}
+                    )) : (
+                      <span className="inline-flex items-center gap-1.5 rounded-full border border-white/[0.06] bg-white/[0.025] px-2.5 py-1 text-xs text-foreground-muted">
+                        等待首次同步
+                      </span>
+                    )}
                   </div>
                 </div>
 
@@ -513,10 +518,12 @@ function LeaderboardView({
                   ) : null}
                   <div className="text-right">
                     <p className="mono-num text-lg font-bold text-foreground">
-                      {formatMetricValue(entry, activeMetric)}
+                      {hasUsage ? formatMetricValue(entry, activeMetric) : "等待同步"}
                     </p>
                     <p className="mono-num mt-0.5 text-xs text-foreground-muted">
-                      不含缓存 {formatTokens(entry.displayNorm)} · {entry.streakDays} 天连续
+                      {hasUsage
+                        ? `不含缓存 ${formatTokens(entry.displayNorm)} · ${entry.streakDays} 天连续`
+                        : "完成本机接入后自动进入榜单"}
                     </p>
                   </div>
                 </div>

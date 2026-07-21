@@ -61,6 +61,7 @@ const STORE_PATH =
 const TOKEN_PREFIX = "znt_trk_";
 const REDIS_KEY = "znt:token-rank:store";
 const BLOB_KEY = "token-rank/store.json";
+const LEADERBOARD_LIMIT = 20;
 export const TOKEN_RANK_COOKIE = "znt_token_rank_token";
 
 let redisClient: Redis | null | undefined;
@@ -379,26 +380,28 @@ export async function getTokenRankLeaderboard(params: {
     grouped.set(user.userId, current);
   }
 
-  const liveEntries: TokenRankEntry[] = [...grouped.values()].map((item, index) => ({
-    rank: index + 1,
-    userId: item.user.userId,
-    name: item.user.name,
-    role: item.user.role,
-    score: item.total,
-    norm: item.norm,
-    cost: estimateCost(item.total),
-    streakDays: item.dates.size,
-    deviceCount: item.devices.size,
-    anomaly: false,
-    byTool: item.byTool,
-    byModel: item.byModel,
-  }));
+  const liveEntries: TokenRankEntry[] = store.users.map((user) => {
+    const item = grouped.get(user.userId);
+    return {
+      rank: 0,
+      userId: user.userId,
+      name: user.name,
+      role: user.role,
+      score: item?.total ?? 0,
+      norm: item?.norm ?? 0,
+      cost: estimateCost(item?.total ?? 0),
+      streakDays: item?.dates.size ?? 0,
+      deviceCount: item?.devices.size ?? 0,
+      anomaly: false,
+      byTool: item?.byTool ?? {},
+      byModel: item?.byModel ?? {},
+    };
+  });
 
   const sorted = liveEntries
-    .filter((entry) => board === "total" || (entry.byTool[board] ?? 0) > 0)
     .sort((a, b) => {
-      const aBoardRatio = board === "total" ? 1 : (a.byTool[board] ?? 0) / a.score;
-      const bBoardRatio = board === "total" ? 1 : (b.byTool[board] ?? 0) / b.score;
+      const aBoardRatio = board === "total" ? 1 : a.score > 0 ? (a.byTool[board] ?? 0) / a.score : 0;
+      const bBoardRatio = board === "total" ? 1 : b.score > 0 ? (b.byTool[board] ?? 0) / b.score : 0;
       const aValue = metric === "cost"
         ? a.cost * aBoardRatio
         : metric === "norm"
@@ -406,11 +409,13 @@ export async function getTokenRankLeaderboard(params: {
           : board === "total" ? a.score : (a.byTool[board] ?? 0);
       const bValue = metric === "cost"
         ? b.cost * bBoardRatio
-        : metric === "norm"
-          ? b.norm * bBoardRatio
-          : board === "total" ? b.score : (b.byTool[board] ?? 0);
-      return bValue - aValue;
+          : metric === "norm"
+            ? b.norm * bBoardRatio
+            : board === "total" ? b.score : (b.byTool[board] ?? 0);
+      if (bValue !== aValue) return bValue - aValue;
+      return a.userId - b.userId;
     })
+    .slice(0, LEADERBOARD_LIMIT)
     .map((entry, index) => {
       if (board === "total") return { ...entry, rank: index + 1 };
       const boardScore = entry.byTool[board] ?? 0;
