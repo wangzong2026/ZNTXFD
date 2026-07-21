@@ -34,12 +34,18 @@ fi
 SCRIPT_URL="${ENDPOINT%/api/token-rank/upload}/token-rank/client.mjs"
 INSTALL_DIR="$HOME/.znt-tokenrank"
 CLIENT="$INSTALL_DIR/client.mjs"
+NODE_BIN="${ZNT_TOKENRANK_NODE:-$(command -v node || true)}"
+
+if [[ -z "$NODE_BIN" ]]; then
+  echo "没有找到 node。请先安装 Node.js，再重新运行接入命令。" >&2
+  exit 1
+fi
 
 mkdir -p "$INSTALL_DIR"
 curl -fsSL "$SCRIPT_URL" -o "$CLIENT"
 chmod +x "$CLIENT"
 
-if ! node "$CLIENT" --token "$TOKEN" --endpoint "$ENDPOINT"; then
+if ! "$NODE_BIN" "$CLIENT" --token "$TOKEN" --endpoint "$ENDPOINT"; then
   echo "首次同步失败，未安装后台任务。请确认你复制的是页面生成的真实专属命令。" >&2
   exit 1
 fi
@@ -55,10 +61,10 @@ if [[ "$(uname -s)" == "Darwin" ]]; then
   <key>Label</key><string>group.znt.tokenrank</string>
   <key>ProgramArguments</key>
   <array>
-    <string>node</string>
+    <string>$NODE_BIN</string>
     <string>$CLIENT</string>
   </array>
-  <key>StartInterval</key><integer>1800</integer>
+  <key>StartInterval</key><integer>3600</integer>
   <key>RunAtLoad</key><true/>
   <key>StandardOutPath</key><string>$INSTALL_DIR/sync.log</string>
   <key>StandardErrorPath</key><string>$INSTALL_DIR/sync.err.log</string>
@@ -76,15 +82,15 @@ Description=ZNT Token Rank Sync
 
 [Service]
 Type=oneshot
-ExecStart=$(command -v node) $CLIENT
+ExecStart=$NODE_BIN $CLIENT
 EOF
   cat > "$SYSTEMD_DIR/znt-tokenrank.timer" <<EOF
 [Unit]
-Description=Run ZNT Token Rank Sync every 30 minutes
+Description=Run ZNT Token Rank Sync hourly
 
 [Timer]
 OnBootSec=3min
-OnUnitActiveSec=30min
+OnUnitActiveSec=60min
 
 [Install]
 WantedBy=timers.target
@@ -92,7 +98,7 @@ EOF
   systemctl --user daemon-reload
   systemctl --user enable --now znt-tokenrank.timer
 else
-  CRON_LINE="*/30 * * * * node $CLIENT >> $INSTALL_DIR/sync.log 2>> $INSTALL_DIR/sync.err.log"
+  CRON_LINE="0 * * * * $NODE_BIN $CLIENT >> $INSTALL_DIR/sync.log 2>> $INSTALL_DIR/sync.err.log"
   (crontab -l 2>/dev/null | grep -v "znt-tokenrank/client.mjs"; echo "$CRON_LINE") | crontab -
 fi
 
