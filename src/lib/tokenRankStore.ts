@@ -2,6 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { Redis } from "@upstash/redis";
+import { get as getBlob, put as putBlob } from "@vercel/blob";
 import type { TokenRankEntry } from "@/lib/data";
 
 export type TokenRankUser = {
@@ -59,6 +60,7 @@ const STORE_PATH =
 
 const TOKEN_PREFIX = "znt_trk_";
 const REDIS_KEY = "znt:token-rank:store";
+const BLOB_KEY = "token-rank/store.json";
 export const TOKEN_RANK_COOKIE = "znt_token_rank_token";
 
 let redisClient: Redis | null | undefined;
@@ -84,7 +86,23 @@ function getRedis() {
   return redisClient;
 }
 
+function hasBlobStore() {
+  return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
+}
+
 async function readStore(): Promise<TokenRankStore> {
+  if (hasBlobStore()) {
+    try {
+      const blob = await getBlob(BLOB_KEY, { access: "private", useCache: false });
+      if (!blob?.stream) return emptyStore();
+      const text = await new Response(blob.stream).text();
+      return normalizeStore(JSON.parse(text));
+    } catch (error) {
+      if (error instanceof Error && error.message.includes("not found")) return emptyStore();
+      return emptyStore();
+    }
+  }
+
   const redis = getRedis();
   if (redis) {
     const raw = await redis.get<TokenRankStore>(REDIS_KEY);
@@ -102,6 +120,15 @@ async function readStore(): Promise<TokenRankStore> {
 }
 
 async function writeStore(store: TokenRankStore) {
+  if (hasBlobStore()) {
+    await putBlob(BLOB_KEY, JSON.stringify(store, null, 2), {
+      access: "private",
+      allowOverwrite: true,
+      contentType: "application/json",
+    });
+    return;
+  }
+
   const redis = getRedis();
   if (redis) {
     await redis.set(REDIS_KEY, store);
