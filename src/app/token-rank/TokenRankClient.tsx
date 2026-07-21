@@ -207,19 +207,22 @@ function CopyButton({
   copyKey,
   copied,
   onCopy,
+  disabled = false,
 }: {
   value: string;
   copyKey: string;
   copied: string;
   onCopy: (value: string, key: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={() => onCopy(value, copyKey)}
-      className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-bold text-background transition-transform hover:-translate-y-0.5 hover:bg-accent-light"
+      disabled={disabled}
+      className="shrink-0 rounded-full bg-accent px-4 py-2 text-sm font-bold text-background transition-transform hover:-translate-y-0.5 hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-55 disabled:hover:translate-y-0"
     >
-      {copied === copyKey ? "已复制" : "复制"}
+      {disabled ? "先生成" : copied === copyKey ? "已复制" : "复制"}
     </button>
   );
 }
@@ -231,6 +234,7 @@ function CommandBox({
   copyKey,
   copied,
   onCopy,
+  disabled = false,
 }: {
   title: string;
   description: string;
@@ -238,6 +242,7 @@ function CommandBox({
   copyKey: string;
   copied: string;
   onCopy: (value: string, key: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <section className="glass-card p-5">
@@ -249,7 +254,13 @@ function CommandBox({
         <code className="min-w-0 overflow-x-auto rounded-[12px] border border-white/[0.06] bg-background/70 px-3 py-3 text-xs leading-6 text-foreground-muted">
           {value}
         </code>
-        <CopyButton value={value} copyKey={copyKey} copied={copied} onCopy={onCopy} />
+        <CopyButton
+          value={value}
+          copyKey={copyKey}
+          copied={copied}
+          onCopy={onCopy}
+          disabled={disabled}
+        />
       </div>
     </section>
   );
@@ -528,9 +539,9 @@ function ConnectView({ data }: { data: TokenRankData }) {
   const [isRegistering, setIsRegistering] = useState(false);
   const [error, setError] = useState("");
   const command = os === "mac"
-    ? connection?.installMac ?? data.connect.installMac
-    : connection?.installWin ?? data.connect.installWin;
-  const agentPrompt = connection?.agentPrompt ?? data.connect.agentPrompt;
+    ? connection?.installMac ?? "请先点击上方「生成命令」，这里会出现你的真实专属安装命令。"
+    : connection?.installWin ?? "请先点击上方「生成命令」，这里会出现你的真实专属安装命令。";
+  const agentPrompt = connection?.agentPrompt ?? "请先点击上方「生成命令」，这里会出现带真实专属令牌的 AI 接入提示。";
 
   useEffect(() => {
     try {
@@ -670,6 +681,7 @@ function ConnectView({ data }: { data: TokenRankData }) {
         copyKey="command"
         copied={copied}
         onCopy={copy}
+        disabled={!connection}
       />
 
       <CommandBox
@@ -679,6 +691,7 @@ function ConnectView({ data }: { data: TokenRankData }) {
         copyKey="agent"
         copied={copied}
         onCopy={copy}
+        disabled={!connection}
       />
 
       <CommandBox

@@ -25,6 +25,12 @@ if [[ -z "$TOKEN" || -z "$ENDPOINT" ]]; then
   exit 1
 fi
 
+if [[ "$TOKEN" == *"xxx"* || "$TOKEN" == *"your_private_token"* ]]; then
+  echo "令牌还是占位符：$TOKEN" >&2
+  echo "请先在 Token 消耗榜页面点击「生成命令」，复制生成后的真实专属命令。" >&2
+  exit 1
+fi
+
 SCRIPT_URL="${ENDPOINT%/api/token-rank/upload}/token-rank/client.mjs"
 INSTALL_DIR="$HOME/.znt-tokenrank"
 CLIENT="$INSTALL_DIR/client.mjs"
@@ -33,7 +39,10 @@ mkdir -p "$INSTALL_DIR"
 curl -fsSL "$SCRIPT_URL" -o "$CLIENT"
 chmod +x "$CLIENT"
 
-node "$CLIENT" --token "$TOKEN" --endpoint "$ENDPOINT" || true
+if ! node "$CLIENT" --token "$TOKEN" --endpoint "$ENDPOINT"; then
+  echo "首次同步失败，未安装后台任务。请确认你复制的是页面生成的真实专属命令。" >&2
+  exit 1
+fi
 
 if [[ "$(uname -s)" == "Darwin" ]]; then
   PLIST="$HOME/Library/LaunchAgents/group.znt.tokenrank.plist"

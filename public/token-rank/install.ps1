@@ -12,11 +12,18 @@ function znt-tokenrank {
     throw "缺少 --token 或 --endpoint，请从 Token 消耗榜页面复制专属命令。"
   }
 
+  if ($Token -like "*xxx*" -or $Token -like "*your_private_token*") {
+    throw "令牌还是占位符。请先在 Token 消耗榜页面点击「生成命令」，复制生成后的真实专属命令。"
+  }
+
   New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
   $ScriptUrl = $Endpoint -replace "/api/token-rank/upload$", "/token-rank/client.mjs"
   Invoke-WebRequest -Uri $ScriptUrl -OutFile $Client
 
   node $Client --token $Token --endpoint $Endpoint
+  if ($LASTEXITCODE -ne 0) {
+    throw "首次同步失败，未安装后台任务。请确认你复制的是页面生成的真实专属命令。"
+  }
 
   $Action = New-ScheduledTaskAction -Execute "node" -Argument "`"$Client`""
   $Trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) -RepetitionInterval (New-TimeSpan -Minutes 30)

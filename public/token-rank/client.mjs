@@ -63,6 +63,10 @@ function getArg(name) {
   return process.argv[index + 1] || "";
 }
 
+function isPlaceholderToken(value) {
+  return !value || value.includes("xxx") || value.includes("your_private_token");
+}
+
 function ensureConfig() {
   const token = getArg("--token");
   const endpoint = getArg("--endpoint");
@@ -75,8 +79,8 @@ function ensureConfig() {
     deviceId,
   };
 
-  if (!next.token || !next.endpoint) {
-    throw new Error("缺少 --token 或 --endpoint，请从 Token 消耗榜页面复制专属命令。");
+  if (isPlaceholderToken(next.token) || !next.endpoint) {
+    throw new Error("缺少真实专属令牌。请先在 Token 消耗榜页面点击「生成命令」，不要运行 znt_trk_xxx_your_private_token 占位命令。");
   }
 
   writeConfig(next);
