@@ -885,6 +885,30 @@ function MineView({ data }: { data: TokenRankData }) {
       </section>
 
       <section className="glass-card p-5">
+        <h2 className="font-bold text-foreground">切换专属令牌</h2>
+        <p className="mt-2 text-sm leading-6 text-foreground-muted">
+          如果这里显示 0，但排行榜里已经有你的名字，通常是当前浏览器登录了另一个空身份。输入本机安装时的 znt_trk_ 令牌即可切回真实账号。
+        </p>
+        <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
+          <input
+            value={loginToken}
+            onChange={(event) => setLoginToken(event.target.value)}
+            placeholder="znt_trk_..."
+            className="h-11 w-full rounded-[12px] border border-white/[0.08] bg-background/70 px-3 text-sm text-foreground outline-none transition-colors placeholder:text-foreground-disabled focus:border-accent/60"
+          />
+          <button
+            type="button"
+            onClick={login}
+            disabled={isLoggingIn || !loginToken.trim()}
+            className="h-11 rounded-full bg-accent px-5 text-sm font-bold text-background transition-transform hover:-translate-y-0.5 hover:bg-accent-light disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isLoggingIn ? "切换中" : "切换"}
+          </button>
+        </div>
+        {loginError ? <p className="mt-3 text-sm text-pink">{loginError}</p> : null}
+      </section>
+
+      <section className="glass-card p-5">
         <div className="flex flex-wrap items-center gap-3">
           <span className="pulse-dot" aria-hidden="true" />
           <h2 className="font-bold text-foreground">{todayTotal > 0 ? "今日数据已同步" : "等待今日同步"}</h2>
