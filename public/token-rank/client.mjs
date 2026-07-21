@@ -7,13 +7,13 @@ import path from "node:path";
 const VERSION = "0.1.0";
 const CONFIG_DIR = path.join(os.homedir(), ".znt-tokenrank");
 const CONFIG_PATH = path.join(CONFIG_DIR, "config.json");
-const MAX_FILE_SIZE = 2 * 1024 * 1024;
-const MAX_FILES_PER_TOOL = 160;
+const MAX_FILE_SIZE = 8 * 1024 * 1024;
+const MAX_FILES_PER_TOOL = 320;
 const LOOKBACK_MS = 35 * 24 * 60 * 60 * 1000;
 
 const TOOL_SOURCES = [
-  { tool: "codex", dirs: ["~/.codex", "~/.codex/sessions"] },
-  { tool: "claude-code", dirs: ["~/.claude", "~/.claude/projects"] },
+  { tool: "codex", dirs: ["~/.codex/sessions", "~/.codex/archived_sessions"] },
+  { tool: "claude-code", dirs: ["~/.claude/projects"] },
   { tool: "cursor", dirs: ["~/Library/Application Support/Cursor/User/globalStorage", "~/.cursor"] },
   { tool: "gemini", dirs: ["~/.gemini"] },
   { tool: "kimi", dirs: ["~/.kimi", "~/Library/Application Support/Kimi"] },
@@ -97,14 +97,30 @@ function walkRecentFiles(root, out = []) {
     return out;
   }
 
+  const recentItems = [];
+
   for (const item of items) {
-    if (out.length >= MAX_FILES_PER_TOOL) break;
     if (item.name.startsWith(".git")) continue;
     const full = path.join(root, item.name);
 
     try {
       const stat = fs.statSync(full);
       if (Date.now() - stat.mtimeMs > LOOKBACK_MS) continue;
+      recentItems.push({ item, full, stat });
+    } catch {
+      // Ignore locked app databases and transient files.
+    }
+  }
+
+  recentItems.sort((a, b) => {
+    if (a.item.isDirectory() !== b.item.isDirectory()) return a.item.isDirectory() ? -1 : 1;
+    return b.stat.mtimeMs - a.stat.mtimeMs;
+  });
+
+  for (const { item, full, stat } of recentItems) {
+    if (out.length >= MAX_FILES_PER_TOOL) break;
+
+    try {
       if (item.isDirectory()) {
         walkRecentFiles(full, out);
       } else if (item.isFile() && stat.size > 0 && stat.size <= MAX_FILE_SIZE && /\.(jsonl?|log|txt)$/i.test(item.name)) {
@@ -127,14 +143,59 @@ function numberAt(obj, keys) {
   return 0;
 }
 
+function firstObjectAt(obj, paths) {
+  for (const pathItems of paths) {
+    let value = obj;
+    for (const key of pathItems) {
+      value = value?.[key];
+    }
+    if (value && typeof value === "object") return value;
+  }
+  return null;
+}
+
+function usageRecordsFromStatsCache(obj) {
+  if (!Array.isArray(obj?.dailyModelTokens)) return [];
+
+  const records = [];
+  for (const item of obj.dailyModelTokens) {
+    if (!item?.date || !item.tokensByModel || typeof item.tokensByModel !== "object") continue;
+    for (const [model, tokens] of Object.entries(item.tokensByModel)) {
+      const totalTokens = Number(tokens);
+      if (!Number.isFinite(totalTokens) || totalTokens <= 0) continue;
+      records.push({
+        date: String(item.date),
+        model: String(model || "unknown").slice(0, 128),
+        inputTokens: 0,
+        outputTokens: 0,
+        cacheReadTokens: 0,
+        cacheWriteTokens: 0,
+        totalTokens: Math.round(totalTokens),
+      });
+    }
+  }
+  return records;
+}
+
 function usageFromObject(obj) {
-  const usage = obj?.usage && typeof obj.usage === "object" ? obj.usage : obj;
+  const usage = firstObjectAt(obj, [
+    ["payload", "info", "last_token_usage"],
+    ["message", "usage"],
+    ["usage"],
+  ]) ?? obj;
   const inputTokens = numberAt(usage, ["input_tokens", "prompt_tokens", "inputTokens", "promptTokens"]);
   const outputTokens = numberAt(usage, ["output_tokens", "completion_tokens", "outputTokens", "completionTokens"]);
-  const cacheReadTokens = numberAt(usage, ["cache_read_input_tokens", "cacheReadInputTokens", "cached_tokens", "cachedTokens"]);
+  const cacheReadTokens = numberAt(usage, [
+    "cache_read_input_tokens",
+    "cacheReadInputTokens",
+    "cached_input_tokens",
+    "cached_tokens",
+    "cachedTokens",
+  ]);
   const cacheWriteTokens = numberAt(usage, ["cache_creation_input_tokens", "cacheCreationInputTokens", "cache_write_tokens", "cacheWriteTokens"]);
   const explicitTotal = numberAt(usage, ["total_tokens", "totalTokens"]);
-  const totalTokens = Math.max(explicitTotal, inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens);
+  const computedTotal = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
+  const totalTokens = explicitTotal || computedTotal;
 
   if (totalTokens <= 0) return null;
 
@@ -143,13 +204,27 @@ function usageFromObject(obj) {
 
   return {
     date: Number.isFinite(time) ? todayFromTime(time) : "",
-    model: String(obj?.model || obj?.model_name || usage?.model || "unknown").slice(0, 128),
+    model: String(obj?.message?.model || obj?.model || obj?.model_name || usage?.model || "unknown").slice(0, 128),
     inputTokens,
     outputTokens,
     cacheReadTokens,
     cacheWriteTokens,
     totalTokens,
   };
+}
+
+function usageRecordKey(obj) {
+  if (obj?.message?.id) return `message:${obj.message.id}`;
+  if (obj?.requestId && obj?.message?.model) return `request:${obj.requestId}:${obj.message.model}`;
+  if (obj?.payload?.type === "token_count" && obj?.timestamp) return `codex:${obj.timestamp}`;
+  return "";
+}
+
+function usageRecordsFromValue(value) {
+  const statsRecords = usageRecordsFromStatsCache(value);
+  if (statsRecords.length > 0) return statsRecords;
+  const record = usageFromObject(value);
+  return record ? [record] : [];
 }
 
 function parseLooseJsonLines(text) {
@@ -162,20 +237,23 @@ function parseLooseJsonLines(text) {
     const parsed = JSON.parse(trimmed);
     const values = Array.isArray(parsed) ? parsed : [parsed];
     for (const value of values) {
-      const record = usageFromObject(value);
-      if (record) records.push(record);
+      records.push(...usageRecordsFromValue(value));
     }
     return records;
   } catch {
     // Fall through to JSONL parsing.
   }
 
+  const seen = new Set();
   for (const line of trimmed.split(/\r?\n/)) {
     const part = line.trim();
     if (!part.startsWith("{")) continue;
     try {
-      const record = usageFromObject(JSON.parse(part));
-      if (record) records.push(record);
+      const value = JSON.parse(part);
+      const key = usageRecordKey(value);
+      if (key && seen.has(key)) continue;
+      if (key) seen.add(key);
+      records.push(...usageRecordsFromValue(value));
     } catch {
       // Some tools mix progress text with JSON. Skip noisy lines.
     }
