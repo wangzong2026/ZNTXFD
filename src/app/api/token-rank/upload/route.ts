@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
   return NextResponse.json({
     status: 0,
     accepted: result.accepted,
+    replaced: result.replaced,
+    idempotent: result.idempotent ?? false,
     receivedAt: new Date().toISOString(),
   });
 }

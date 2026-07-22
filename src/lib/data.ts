@@ -178,6 +178,11 @@ export type TokenRankMySummary = {
 export type TokenRankData = {
   updatedAt: string;
   totalMembers: number;
+  aggregate?: {
+    total: number;
+    norm: number;
+    cost: number;
+  };
   syncIntervalMinutes: number;
   boards: TokenRankBoard[];
   ranges: TokenRankRange[];

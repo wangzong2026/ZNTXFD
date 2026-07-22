@@ -2,7 +2,12 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { Redis } from "@upstash/redis";
-import { get as getBlob, put as putBlob } from "@vercel/blob";
+import {
+  BlobNotFoundError,
+  BlobPreconditionFailedError,
+  get as getBlob,
+  put as putBlob,
+} from "@vercel/blob";
 import type { TokenRankEntry } from "@/lib/data";
 
 export type TokenRankUser = {
@@ -27,12 +32,33 @@ export type TokenRankUsageRecord = {
   cacheReadTokens: number;
   cacheWriteTokens: number;
   totalTokens: number;
+  inputTokenSemantics: "fresh";
   createdAt: string;
 };
 
+type TokenRankCollectorState = {
+  userId: number;
+  tokenHash: string;
+  deviceId: string;
+  tool: "codex";
+  protocolVersion: 2;
+  clientVersion: string;
+  observedThrough: string;
+  lastSync: string;
+  snapshotId?: string;
+  snapshotDigest?: string;
+  snapshotStartDate?: string;
+  snapshotEndDate?: string;
+  lastAccepted?: number;
+  lastReplaced?: number;
+};
+
 type TokenRankStore = {
+  revision: number;
   users: TokenRankUser[];
   records: TokenRankUsageRecord[];
+  collectors: TokenRankCollectorState[];
+  lastUploadAt: string;
 };
 
 type UploadRecordInput = {
@@ -44,13 +70,70 @@ type UploadRecordInput = {
   cacheReadTokens?: unknown;
   cacheWriteTokens?: unknown;
   totalTokens?: unknown;
+  inputTokenSemantics?: unknown;
 };
 
 type UploadInput = {
   deviceId?: unknown;
   clientVersion?: unknown;
+  protocolVersion?: unknown;
+  collector?: unknown;
+  snapshot?: unknown;
   records?: unknown;
 };
+
+type PreparedRecord = {
+  date: string;
+  tool: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  cacheReadTokens: number;
+  cacheWriteTokens: number;
+  totalTokens: number;
+  inputTokenSemantics: "fresh";
+};
+
+type PreparedCollector = {
+  tool: "codex";
+  observedThrough: string;
+  observedThroughMs: number;
+  startDate: string;
+  endDate: string;
+};
+
+type PreparedSnapshot = {
+  id: string;
+  tool: "codex";
+  complete: true;
+  observedThrough: string;
+  startDate: string;
+  endDate: string;
+  timeZone: "Asia/Shanghai";
+};
+
+type PreparedUpload = {
+  deviceId: string;
+  clientVersion: string;
+  protocolVersion: 1 | 2;
+  collector: PreparedCollector | null;
+  snapshot: PreparedSnapshot | null;
+  records: PreparedRecord[];
+};
+
+type VersionedStore = {
+  store: TokenRankStore;
+  version: string | null;
+};
+
+type MutationResult<T> = {
+  changed: boolean;
+  value: T;
+};
+
+type AppendTokenRankResult =
+  | { ok: false; status: number; message: string }
+  | { ok: true; accepted: number; replaced: number; idempotent?: boolean };
 
 const STORE_PATH =
   process.env.TOKEN_RANK_STORE_PATH ??
@@ -62,19 +145,80 @@ const TOKEN_PREFIX = "znt_trk_";
 const REDIS_KEY = "znt:token-rank:store";
 const BLOB_KEY = "token-rank/store.json";
 const LEADERBOARD_LIMIT = 20;
+const MAX_UPLOAD_RECORDS = 2000;
+const HISTORY_DAYS = 35;
+const MAX_CAS_ATTEMPTS = 8;
+const CACHE_INCLUSIVE_TOOLS = new Set(["codex"]);
+const REDIS_CAS_SCRIPT = `
+local current = redis.call("GET", KEYS[1])
+if ARGV[1] == "missing" then
+  if current then return 0 end
+else
+  if not current then return 0 end
+  local ok, decoded = pcall(cjson.decode, current)
+  if not ok or tostring(decoded.revision or 0) ~= ARGV[1] then return 0 end
+end
+redis.call("SET", KEYS[1], ARGV[2])
+return 1
+`;
 export const TOKEN_RANK_COOKIE = "znt_token_rank_token";
 
 let redisClient: Redis | null | undefined;
+let localMutationQueue = Promise.resolve();
+
+class StoreConflictError extends Error {}
 
 function emptyStore(): TokenRankStore {
-  return { users: [], records: [] };
+  return {
+    revision: 0,
+    users: [],
+    records: [],
+    collectors: [],
+    lastUploadAt: "",
+  };
 }
 
 function normalizeStore(raw: unknown): TokenRankStore {
   const store = raw as Partial<TokenRankStore> | null;
+  const records = Array.isArray(store?.records)
+    ? store.records.map(normalizeStoredRecord)
+    : [];
   return {
+    revision: Number.isSafeInteger(store?.revision) && Number(store?.revision) >= 0
+      ? Number(store?.revision)
+      : 0,
     users: Array.isArray(store?.users) ? store.users : [],
-    records: Array.isArray(store?.records) ? store.records : [],
+    records,
+    collectors: Array.isArray(store?.collectors) ? store.collectors : [],
+    lastUploadAt: typeof store?.lastUploadAt === "string"
+      ? store.lastUploadAt
+      : records.reduce(
+          (latest, record) => record.createdAt > latest ? record.createdAt : latest,
+          "",
+        ),
+  };
+}
+
+function normalizeStoredRecord(record: TokenRankUsageRecord): TokenRankUsageRecord {
+  if (record.inputTokenSemantics === "fresh") return record;
+
+  const cacheReadTokens = Math.max(0, Number(record.cacheReadTokens) || 0);
+  const cacheWriteTokens = Math.max(0, Number(record.cacheWriteTokens) || 0);
+  const rawInputTokens = Math.max(0, Number(record.inputTokens) || 0);
+  const inputTokens = CACHE_INCLUSIVE_TOOLS.has(record.tool)
+    ? Math.max(0, rawInputTokens - cacheReadTokens - cacheWriteTokens)
+    : rawInputTokens;
+  const outputTokens = Math.max(0, Number(record.outputTokens) || 0);
+  const computedTotal = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
+
+  return {
+    ...record,
+    inputTokens,
+    outputTokens,
+    cacheReadTokens,
+    cacheWriteTokens,
+    totalTokens: computedTotal > 0 ? computedTotal : Math.max(0, Number(record.totalTokens) || 0),
+    inputTokenSemantics: "fresh",
   };
 }
 
@@ -91,53 +235,124 @@ function hasBlobStore() {
   return Boolean(process.env.BLOB_READ_WRITE_TOKEN);
 }
 
-async function readStore(): Promise<TokenRankStore> {
+function storeContent(store: TokenRankStore) {
+  return JSON.stringify(store, null, 2);
+}
+
+function contentVersion(content: string) {
+  return crypto.createHash("sha256").update(content).digest("hex");
+}
+
+async function readStoreVersioned(): Promise<VersionedStore> {
   if (hasBlobStore()) {
     try {
       const blob = await getBlob(BLOB_KEY, { access: "private", useCache: false });
-      if (!blob?.stream) return emptyStore();
+      if (!blob) return { store: emptyStore(), version: null };
+      if (!blob.stream) throw new Error("Token Rank Blob 返回了空数据流");
       const text = await new Response(blob.stream).text();
-      return normalizeStore(JSON.parse(text));
+      return {
+        store: normalizeStore(JSON.parse(text)),
+        version: blob.blob.etag,
+      };
     } catch (error) {
-      if (error instanceof Error && error.message.includes("not found")) return emptyStore();
-      return emptyStore();
+      if (error instanceof BlobNotFoundError) {
+        return { store: emptyStore(), version: null };
+      }
+      throw error;
     }
   }
 
   const redis = getRedis();
   if (redis) {
     const raw = await redis.get<TokenRankStore>(REDIS_KEY);
-    return normalizeStore(raw);
+    const store = normalizeStore(raw);
+    return {
+      store,
+      version: raw === null ? null : String(store.revision),
+    };
   }
 
-  if (!fs.existsSync(STORE_PATH)) return emptyStore();
-
-  try {
-    const raw = JSON.parse(fs.readFileSync(STORE_PATH, "utf8")) as Partial<TokenRankStore>;
-    return normalizeStore(raw);
-  } catch {
-    return emptyStore();
-  }
+  if (!fs.existsSync(STORE_PATH)) return { store: emptyStore(), version: null };
+  const content = fs.readFileSync(STORE_PATH, "utf8");
+  return {
+    store: normalizeStore(JSON.parse(content)),
+    version: contentVersion(content),
+  };
 }
 
-async function writeStore(store: TokenRankStore) {
+async function readStore(): Promise<TokenRankStore> {
+  return (await readStoreVersioned()).store;
+}
+
+async function writeStoreVersioned(store: TokenRankStore, expectedVersion: string | null) {
+  const content = storeContent(store);
   if (hasBlobStore()) {
-    await putBlob(BLOB_KEY, JSON.stringify(store, null, 2), {
-      access: "private",
-      allowOverwrite: true,
-      contentType: "application/json",
-    });
+    try {
+      await putBlob(BLOB_KEY, content, {
+        access: "private",
+        allowOverwrite: expectedVersion !== null,
+        contentType: "application/json",
+        ...(expectedVersion === null ? {} : { ifMatch: expectedVersion }),
+      });
+    } catch (error) {
+      if (
+        error instanceof BlobPreconditionFailedError ||
+        (expectedVersion === null && error instanceof Error && /already exists|overwrite/i.test(error.message))
+      ) {
+        throw new StoreConflictError("Token Rank Blob revision changed");
+      }
+      throw error;
+    }
     return;
   }
 
   const redis = getRedis();
   if (redis) {
-    await redis.set(REDIS_KEY, store);
+    const written = await redis.eval<[string, string], number>(
+      REDIS_CAS_SCRIPT,
+      [REDIS_KEY],
+      [expectedVersion ?? "missing", content],
+    );
+    if (Number(written) !== 1) throw new StoreConflictError("Token Rank Redis revision changed");
     return;
   }
 
   fs.mkdirSync(path.dirname(STORE_PATH), { recursive: true });
-  fs.writeFileSync(STORE_PATH, JSON.stringify(store, null, 2));
+  const currentVersion = fs.existsSync(STORE_PATH)
+    ? contentVersion(fs.readFileSync(STORE_PATH, "utf8"))
+    : null;
+  if (currentVersion !== expectedVersion) throw new StoreConflictError("Token Rank file revision changed");
+  const temporary = `${STORE_PATH}.${process.pid}.${crypto.randomBytes(6).toString("hex")}.tmp`;
+  fs.writeFileSync(temporary, content);
+  fs.renameSync(temporary, STORE_PATH);
+}
+
+async function mutateStore<T>(mutation: (store: TokenRankStore) => MutationResult<T>): Promise<T> {
+  const run = async () => {
+    for (let attempt = 0; attempt < MAX_CAS_ATTEMPTS; attempt += 1) {
+      const current = await readStoreVersioned();
+      const result = mutation(current.store);
+      if (!result.changed) return result.value;
+      current.store.revision += 1;
+      try {
+        await writeStoreVersioned(current.store, current.version);
+        return result.value;
+      } catch (error) {
+        if (error instanceof StoreConflictError) {
+          const backoffMs = Math.min(200, 10 * 2 ** attempt) + crypto.randomInt(0, 25);
+          await new Promise((resolve) => setTimeout(resolve, backoffMs));
+          continue;
+        }
+        throw error;
+      }
+    }
+    throw new Error("Token Rank 数据写入冲突，请稍后重试");
+  };
+
+  if (hasBlobStore() || getRedis()) return run();
+  const queued = localMutationQueue.then(run, run);
+  localMutationQueue = queued.then(() => undefined, () => undefined);
+  return queued;
 }
 
 function hashToken(token: string) {
@@ -151,11 +366,16 @@ function generateToken() {
 function toFiniteNumber(value: unknown) {
   const number = typeof value === "number" ? value : Number(value);
   if (!Number.isFinite(number) || number < 0) return 0;
-  return Math.round(number);
+  const rounded = Math.round(number);
+  return Number.isSafeInteger(rounded) ? rounded : 0;
+}
+
+function beijingDateAt(time: number) {
+  return new Date(time + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 }
 
 function beijingDate() {
-  return new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  return beijingDateAt(Date.now());
 }
 
 function addDays(date: string, offset: number) {
@@ -177,23 +397,70 @@ function estimateCost(totalTokens: number) {
   return totalTokens / 1000000 * 0.6;
 }
 
-function normalizeUploadRecord(record: UploadRecordInput, fallbackDate: string) {
-  const inputTokens = toFiniteNumber(record.inputTokens);
-  const outputTokens = toFiniteNumber(record.outputTokens);
-  const cacheReadTokens = toFiniteNumber(record.cacheReadTokens);
-  const cacheWriteTokens = toFiniteNumber(record.cacheWriteTokens);
-  const computedTotal = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
-  const totalTokens = Math.max(computedTotal, toFiniteNumber(record.totalTokens));
-  const date = typeof record.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(record.date)
-    ? record.date
-    : fallbackDate;
+function isCalendarDate(value: unknown): value is string {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const time = Date.parse(`${value}T00:00:00Z`);
+  return Number.isFinite(time) && new Date(time).toISOString().slice(0, 10) === value;
+}
+
+function strictCounter(value: unknown) {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0
+    ? value
+    : null;
+}
+
+function normalizedTimestamp(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const time = Date.parse(value);
+  return Number.isFinite(time) ? { iso: new Date(time).toISOString(), time } : null;
+}
+
+function normalizeUploadRecord(
+  record: UploadRecordInput,
+  fallbackDate: string,
+  strict: boolean,
+): PreparedRecord | null {
+  if (!record || typeof record !== "object") return null;
   const tool = typeof record.tool === "string" && record.tool.trim()
     ? record.tool.trim().slice(0, 64)
     : "unknown";
+  const strictInput = strictCounter(record.inputTokens);
+  const strictOutput = strictCounter(record.outputTokens);
+  const strictCacheRead = strictCounter(record.cacheReadTokens);
+  const strictCacheWrite = strictCounter(record.cacheWriteTokens);
+  const strictTotal = strictCounter(record.totalTokens);
+  if (
+    strict &&
+    (strictInput === null || strictOutput === null || strictCacheRead === null ||
+      strictCacheWrite === null || strictTotal === null)
+  ) {
+    return null;
+  }
+  const rawInputTokens = strict ? strictInput! : toFiniteNumber(record.inputTokens);
+  const outputTokens = strict ? strictOutput! : toFiniteNumber(record.outputTokens);
+  const cacheReadTokens = strict ? strictCacheRead! : toFiniteNumber(record.cacheReadTokens);
+  const cacheWriteTokens = strict ? strictCacheWrite! : toFiniteNumber(record.cacheWriteTokens);
+  const inputTokens = record.inputTokenSemantics === "fresh" || !CACHE_INCLUSIVE_TOOLS.has(tool)
+    ? rawInputTokens
+    : Math.max(0, rawInputTokens - cacheReadTokens - cacheWriteTokens);
+  const computedTotal = inputTokens + outputTokens + cacheReadTokens + cacheWriteTokens;
+  if (!Number.isSafeInteger(computedTotal)) return null;
+  const explicitTotal = strict ? strictTotal! : toFiniteNumber(record.totalTokens);
+  const totalTokens = computedTotal > 0 ? computedTotal : explicitTotal;
+  const date = isCalendarDate(record.date)
+    ? record.date
+    : fallbackDate;
   const model = typeof record.model === "string" && record.model.trim()
     ? record.model.trim().slice(0, 128)
     : "unknown";
 
+  if (strict && (!isCalendarDate(record.date) || tool === "unknown")) return null;
+  if (
+    strict && tool === "codex" &&
+    (record.inputTokenSemantics !== "fresh" || explicitTotal !== computedTotal)
+  ) {
+    return null;
+  }
   if (totalTokens <= 0) return null;
 
   return {
@@ -205,24 +472,169 @@ function normalizeUploadRecord(record: UploadRecordInput, fallbackDate: string) 
     cacheReadTokens,
     cacheWriteTokens,
     totalTokens,
+    inputTokenSemantics: "fresh" as const,
   };
 }
 
+function validateUpload(input: UploadInput, nowMs = Date.now()):
+  | { ok: true; value: PreparedUpload }
+  | { ok: false; message: string } {
+  if (!input || typeof input !== "object") return { ok: false, message: "上报内容必须是对象" };
+  const protocolVersion = input.protocolVersion === undefined ? 1 : input.protocolVersion;
+  if (protocolVersion !== 1 && protocolVersion !== 2) {
+    return { ok: false, message: "protocolVersion 只支持 1 或 2" };
+  }
+  const strict = protocolVersion === 2;
+  const deviceId = typeof input.deviceId === "string" ? input.deviceId.trim() : "";
+  if (strict && !/^[0-9a-f]{32}$/.test(deviceId)) {
+    return { ok: false, message: "v2 deviceId 必须是 32 位小写十六进制字符串" };
+  }
+  const normalizedDeviceId = deviceId ? deviceId.slice(0, 128) : "unknown-device";
+  const clientVersion = typeof input.clientVersion === "string" ? input.clientVersion.trim() : "";
+  if (strict && (!clientVersion || clientVersion.length > 32)) {
+    return { ok: false, message: "v2 clientVersion 无效" };
+  }
+  const normalizedClientVersion = clientVersion ? clientVersion.slice(0, 32) : "unknown";
+  if (!Array.isArray(input.records)) {
+    if (strict) return { ok: false, message: "v2 records 必须是数组" };
+  }
+  const rawRecords = Array.isArray(input.records) ? input.records : [];
+  if (rawRecords.length > MAX_UPLOAD_RECORDS) {
+    return { ok: false, message: `单次最多上报 ${MAX_UPLOAD_RECORDS} 条记录` };
+  }
+
+  let collector: PreparedCollector | null = null;
+  if (input.collector !== undefined && input.collector !== null) {
+    if (!strict || typeof input.collector !== "object") {
+      return { ok: false, message: "collector 仅支持 v2 对象" };
+    }
+    const raw = input.collector as Record<string, unknown>;
+    const observed = normalizedTimestamp(raw.observedThrough);
+    if (raw.tool !== "codex" || !observed) {
+      return { ok: false, message: "collector 必须声明 codex 和有效 observedThrough" };
+    }
+    if (observed.time > nowMs + 5 * 60 * 1000 || observed.time < nowMs - 48 * 60 * 60 * 1000) {
+      return { ok: false, message: "collector observedThrough 超出允许时间范围" };
+    }
+    const endDate = beijingDateAt(observed.time);
+    collector = {
+      tool: "codex",
+      observedThrough: observed.iso,
+      observedThroughMs: observed.time,
+      startDate: addDays(endDate, -(HISTORY_DAYS - 1)),
+      endDate,
+    };
+  }
+
+  let snapshot: PreparedSnapshot | null = null;
+  if (input.snapshot !== undefined && input.snapshot !== null) {
+    if (!strict || !collector || typeof input.snapshot !== "object") {
+      return { ok: false, message: "snapshot 必须与 v2 collector 同时上报" };
+    }
+    const raw = input.snapshot as Record<string, unknown>;
+    const observed = normalizedTimestamp(raw.observedThrough);
+    const id = typeof raw.id === "string" ? raw.id.trim() : "";
+    if (!/^[A-Za-z0-9._:-]{1,128}$/.test(id)) {
+      return { ok: false, message: "snapshot id 无效" };
+    }
+    if (
+      raw.tool !== "codex" || raw.complete !== true || raw.timeZone !== "Asia/Shanghai" ||
+      !observed || observed.iso !== collector.observedThrough
+    ) {
+      return { ok: false, message: "snapshot 的工具、完整性、时区或高水位无效" };
+    }
+    if (
+      !isCalendarDate(raw.startDate) || !isCalendarDate(raw.endDate) ||
+      raw.startDate !== collector.startDate || raw.endDate !== collector.endDate
+    ) {
+      return { ok: false, message: `snapshot 必须覆盖 ${HISTORY_DAYS} 个北京时间自然日` };
+    }
+    snapshot = {
+      id,
+      tool: "codex",
+      complete: true,
+      observedThrough: observed.iso,
+      startDate: raw.startDate,
+      endDate: raw.endDate,
+      timeZone: "Asia/Shanghai",
+    };
+  }
+
+  const fallbackDate = beijingDateAt(nowMs);
+  const records: PreparedRecord[] = [];
+  const keys = new Set<string>();
+  for (const rawRecord of rawRecords) {
+    const uploadRecord = rawRecord as UploadRecordInput;
+    if (
+      !uploadRecord || typeof uploadRecord !== "object" || !isCalendarDate(uploadRecord.date) ||
+      strictCounter(uploadRecord.inputTokens) === null || strictCounter(uploadRecord.outputTokens) === null ||
+      strictCounter(uploadRecord.cacheReadTokens) === null ||
+      strictCounter(uploadRecord.cacheWriteTokens) === null || strictCounter(uploadRecord.totalTokens) === null
+    ) {
+      return { ok: false, message: "records 含有无效日期、字段或 token 数值" };
+    }
+    const record = normalizeUploadRecord(uploadRecord, fallbackDate, strict);
+    if (!record) {
+      if (strict) return { ok: false, message: "v2 records 含有无效日期、字段或 token 数值" };
+      continue;
+    }
+    const key = JSON.stringify([record.date, record.tool, record.model]);
+    if (keys.has(key)) return { ok: false, message: "records 存在重复日期、工具和模型" };
+    keys.add(key);
+    records.push(record);
+  }
+
+  const codexRecords = records.filter((record) => record.tool === "codex");
+  if (strict && codexRecords.length > 0 && !collector) {
+    return { ok: false, message: "v2 Codex records 必须带 collector" };
+  }
+  if (
+    collector && codexRecords.some(
+      (record) => record.date < collector.startDate || record.date > collector.endDate,
+    )
+  ) {
+    return { ok: false, message: "Codex records 超出 collector 的 35 日窗口" };
+  }
+
+  return {
+    ok: true,
+    value: {
+      deviceId: normalizedDeviceId,
+      clientVersion: normalizedClientVersion,
+      protocolVersion,
+      collector,
+      snapshot,
+      records,
+    },
+  };
+}
+
+function generateUserId(users: TokenRankUser[]) {
+  let userId = 0;
+  do {
+    userId = crypto.randomBytes(6).readUIntBE(0, 6);
+  } while (userId === 0 || users.some((user) => user.userId === userId));
+  return userId;
+}
+
 export async function createTokenRankUser(input: { name: string; role?: string }) {
-  const store = await readStore();
   const now = new Date().toISOString();
   const token = generateToken();
-  const user: TokenRankUser = {
-    userId: Date.now(),
-    tokenHash: hashToken(token),
-    name: input.name.trim().slice(0, 32) || "智能体先锋队群友",
-    role: input.role?.trim().slice(0, 32) || "自助上榜用户",
-    createdAt: now,
-    public: true,
-  };
-
-  store.users.push(user);
-  await writeStore(store);
+  const tokenHash = hashToken(token);
+  const user = await mutateStore((store) => {
+    const existing = store.users.find((candidate) => candidate.tokenHash === tokenHash);
+    if (existing) return { changed: false, value: existing };
+    const created: TokenRankUser = {
+      userId: generateUserId(store.users),
+      tokenHash,
+      name: input.name.trim().slice(0, 32) || "智能体先锋队群友",
+      role: input.role?.trim().slice(0, 32) || "自助上榜用户",
+      createdAt: now,
+      public: true,
+    };
+    store.users.push(created);
+    return { changed: true, value: created };
+  });
 
   return { user, token };
 }
@@ -234,58 +646,151 @@ export async function findTokenRankUser(token: string) {
   return store.users.find((user) => user.tokenHash === tokenHash) ?? null;
 }
 
-export async function appendTokenRankUsage(token: string, input: UploadInput) {
-  const user = await findTokenRankUser(token);
-  if (!user) return { ok: false as const, status: 401, message: "上报 token 无效" };
+export async function appendTokenRankUsage(
+  token: string,
+  input: UploadInput,
+): Promise<AppendTokenRankResult> {
+  if (!token.startsWith(TOKEN_PREFIX)) {
+    return { ok: false as const, status: 401, message: "上报 token 无效" };
+  }
+  const validation = validateUpload(input);
+  if (!validation.ok) {
+    return { ok: false as const, status: 400, message: validation.message };
+  }
+  const prepared = validation.value;
+  const tokenHash = hashToken(token);
+  const snapshotDigest = prepared.snapshot
+    ? crypto.createHash("sha256").update(JSON.stringify({
+        snapshot: prepared.snapshot,
+        records: [...prepared.records].sort((a, b) =>
+          JSON.stringify([a.date, a.tool, a.model]).localeCompare(
+            JSON.stringify([b.date, b.tool, b.model]),
+          )),
+      })).digest("hex")
+    : "";
 
-  const store = await readStore();
-  const fallbackDate = beijingDate();
-  const now = new Date().toISOString();
-  const deviceId =
-    typeof input.deviceId === "string" && input.deviceId.trim()
-      ? input.deviceId.trim().slice(0, 128)
-      : "unknown-device";
-  const clientVersion =
-    typeof input.clientVersion === "string" && input.clientVersion.trim()
-      ? input.clientVersion.trim().slice(0, 32)
-      : "unknown";
-  const rawRecords = Array.isArray(input.records) ? input.records : [];
-  const records = rawRecords
-    .slice(0, 2000)
-    .map((record) => normalizeUploadRecord(record as UploadRecordInput, fallbackDate))
-    .filter((record): record is NonNullable<typeof record> => Boolean(record))
-    .map((record) => ({
+  return mutateStore<AppendTokenRankResult>((store) => {
+    const commitTime = new Date().toISOString();
+    const user = store.users.find((candidate) => candidate.tokenHash === tokenHash);
+    if (!user) {
+      return {
+        changed: false,
+        value: { ok: false as const, status: 401, message: "上报 token 无效" },
+      };
+    }
+
+    const collectorIndex = store.collectors.findIndex((state) =>
+      state.tokenHash === tokenHash &&
+      state.deviceId === prepared.deviceId &&
+      state.tool === "codex"
+    );
+    const previousCollector = collectorIndex >= 0 ? store.collectors[collectorIndex] : null;
+    const hasCodex = prepared.records.some((record) => record.tool === "codex");
+
+    if (prepared.protocolVersion === 1 && hasCodex && previousCollector) {
+      return {
+        changed: false,
+        value: { ok: false as const, status: 409, message: "该设备已升级至 Codex v2，拒绝旧版覆盖" },
+      };
+    }
+    if (prepared.snapshot && previousCollector?.snapshotId === prepared.snapshot.id) {
+      if (previousCollector.snapshotDigest !== snapshotDigest) {
+        return {
+          changed: false,
+          value: { ok: false as const, status: 409, message: "snapshot id 已被不同内容使用" },
+        };
+      }
+      return {
+        changed: false,
+        value: {
+          ok: true as const,
+          accepted: previousCollector.lastAccepted ?? prepared.records.length,
+          replaced: previousCollector.lastReplaced ?? 0,
+          idempotent: true,
+        },
+      };
+    }
+    if (
+      prepared.collector && previousCollector &&
+      prepared.collector.observedThrough < previousCollector.observedThrough
+    ) {
+      return {
+        changed: false,
+        value: { ok: false as const, status: 409, message: "Codex 快照早于已接收的高水位" },
+      };
+    }
+
+    const incomingScopes = new Set(
+      prepared.records
+        .filter((record) => !(prepared.snapshot && record.tool === "codex"))
+        .map((record) => JSON.stringify([
+          tokenHash,
+          prepared.deviceId,
+          record.date,
+          record.tool,
+        ])),
+    );
+    const beforeCount = store.records.length;
+    store.records = store.records.filter((record) => {
+      if (record.tokenHash !== tokenHash || record.deviceId !== prepared.deviceId) return true;
+      if (
+        prepared.snapshot && record.tool === "codex" &&
+        record.date >= prepared.snapshot.startDate && record.date <= prepared.snapshot.endDate
+      ) {
+        return false;
+      }
+      const scope = JSON.stringify([
+        tokenHash,
+        prepared.deviceId,
+        record.date,
+        record.tool,
+      ]);
+      return !incomingScopes.has(scope);
+    });
+    const replaced = beforeCount - store.records.length;
+    const records: TokenRankUsageRecord[] = prepared.records.map((record) => ({
       ...record,
       userId: user.userId,
-      tokenHash: user.tokenHash,
-      deviceId,
-      clientVersion,
-      createdAt: now,
+      tokenHash,
+      deviceId: prepared.deviceId,
+      clientVersion: prepared.clientVersion,
+      createdAt: commitTime,
     }));
+    store.records.push(...records);
 
-  const incomingKeys = new Set(
-    records.map((record) => [
-      record.userId,
-      record.deviceId,
-      record.date,
-      record.tool,
-      record.model,
-    ].join("|")),
-  );
-  store.records = store.records.filter((record) => {
-    const key = [
-      record.userId,
-      record.deviceId,
-      record.date,
-      record.tool,
-      record.model,
-    ].join("|");
-    return !incomingKeys.has(key);
+    if (prepared.collector) {
+      const collector: TokenRankCollectorState = {
+        ...(previousCollector ?? {}),
+        userId: user.userId,
+        tokenHash,
+        deviceId: prepared.deviceId,
+        tool: "codex",
+        protocolVersion: 2,
+        clientVersion: prepared.clientVersion,
+        observedThrough: prepared.collector.observedThrough,
+        lastSync: commitTime,
+        ...(prepared.snapshot
+          ? {
+              snapshotId: prepared.snapshot.id,
+              snapshotDigest,
+              snapshotStartDate: prepared.snapshot.startDate,
+              snapshotEndDate: prepared.snapshot.endDate,
+              lastAccepted: records.length,
+              lastReplaced: replaced,
+            }
+          : {}),
+      };
+      if (collectorIndex >= 0) store.collectors[collectorIndex] = collector;
+      else store.collectors.push(collector);
+    }
+    const changed = records.length > 0 || Boolean(prepared.collector);
+    if (changed) store.lastUploadAt = commitTime;
+
+    return {
+      changed,
+      value: { ok: true as const, accepted: records.length, replaced },
+    };
   });
-  store.records.push(...records);
-  await writeStore(store);
-
-  return { ok: true as const, accepted: records.length };
 }
 
 function summarizeRecords(records: TokenRankUsageRecord[]) {
@@ -322,18 +827,31 @@ function summarizeRecords(records: TokenRankUsageRecord[]) {
 }
 
 export async function getTokenRankMe(token: string) {
-  const user = await findTokenRankUser(token);
-  if (!user) return null;
+  if (!token.startsWith(TOKEN_PREFIX)) return null;
+  const tokenHash = hashToken(token);
   const store = await readStore();
-  const records = store.records.filter((record) => record.userId === user.userId);
+  const user = store.users.find((candidate) => candidate.tokenHash === tokenHash);
+  if (!user) return null;
+  const records = store.records.filter((record) => record.tokenHash === tokenHash);
+  const collectorLastSync = store.collectors.reduce(
+    (latest, state) => state.tokenHash === tokenHash && state.lastSync > latest
+      ? state.lastSync
+      : latest,
+    "",
+  );
   const today = beijingDate();
   const todayRecords = records.filter((record) => record.date === today);
+  const totals = summarizeRecords(records);
+  const todayTotals = summarizeRecords(todayRecords);
 
   return {
     user,
     today,
-    totals: summarizeRecords(records),
-    todayTotals: summarizeRecords(todayRecords),
+    totals: { ...totals, lastSync: collectorLastSync > totals.lastSync ? collectorLastSync : totals.lastSync },
+    todayTotals: {
+      ...todayTotals,
+      lastSync: collectorLastSync > todayTotals.lastSync ? collectorLastSync : todayTotals.lastSync,
+    },
   };
 }
 
@@ -348,7 +866,8 @@ export async function getTokenRankLeaderboard(params: {
   const metric = params.metric || "total";
   const { start, end } = dateRange(range);
   const records = store.records.filter((record) => record.date >= start && record.date <= end);
-  const grouped = new Map<number, {
+  const usersByTokenHash = new Map(store.users.map((user) => [user.tokenHash, user]));
+  const grouped = new Map<string, {
     user: TokenRankUser;
     total: number;
     norm: number;
@@ -360,9 +879,9 @@ export async function getTokenRankLeaderboard(params: {
 
   for (const record of records) {
     if (board !== "total" && record.tool !== board) continue;
-    const user = store.users.find((candidate) => candidate.userId === record.userId);
+    const user = usersByTokenHash.get(record.tokenHash);
     if (!user) continue;
-    const current = grouped.get(user.userId) ?? {
+    const current = grouped.get(user.tokenHash) ?? {
       user,
       total: 0,
       norm: 0,
@@ -377,11 +896,11 @@ export async function getTokenRankLeaderboard(params: {
     current.byModel[record.model] = (current.byModel[record.model] ?? 0) + record.totalTokens;
     current.devices.add(record.deviceId);
     current.dates.add(record.date);
-    grouped.set(user.userId, current);
+    grouped.set(user.tokenHash, current);
   }
 
   const liveEntries: TokenRankEntry[] = store.users.map((user) => {
-    const item = grouped.get(user.userId);
+    const item = grouped.get(user.tokenHash);
     return {
       rank: 0,
       userId: user.userId,
@@ -397,6 +916,18 @@ export async function getTokenRankLeaderboard(params: {
       byModel: item?.byModel ?? {},
     };
   });
+
+  const aggregate = liveEntries.reduce(
+    (sum, entry) => {
+      const boardScore = board === "total" ? entry.score : (entry.byTool[board] ?? 0);
+      const ratio = entry.score > 0 ? boardScore / entry.score : 0;
+      sum.total += boardScore;
+      sum.norm += board === "total" ? entry.norm : entry.norm * ratio;
+      sum.cost += board === "total" ? entry.cost : entry.cost * ratio;
+      return sum;
+    },
+    { total: 0, norm: 0, cost: 0 },
+  );
 
   const sorted = liveEntries
     .sort((a, b) => {
@@ -435,8 +966,9 @@ export async function getTokenRankLeaderboard(params: {
     range,
     metric,
     entries: sorted,
+    aggregate,
     totalMembers: store.users.length,
-    updatedAt: new Date().toISOString(),
+    updatedAt: store.lastUploadAt,
   };
 }
 

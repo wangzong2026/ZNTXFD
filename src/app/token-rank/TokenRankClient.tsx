@@ -290,8 +290,12 @@ function LeaderboardView({
     () => buildRankedEntries(data.entries, activeBoard, activeMetric),
     [activeBoard, activeMetric, data.entries],
   );
-  const totalTokens = rankedEntries.reduce((sum, entry) => sum + entry.displayScore, 0);
-  const totalCost = rankedEntries.reduce((sum, entry) => sum + entry.displayCost, 0);
+  const totalTokens = data.aggregate?.total
+    ?? rankedEntries.reduce((sum, entry) => sum + entry.displayScore, 0);
+  const totalNorm = data.aggregate?.norm
+    ?? rankedEntries.reduce((sum, entry) => sum + entry.displayNorm, 0);
+  const totalCost = data.aggregate?.cost
+    ?? rankedEntries.reduce((sum, entry) => sum + entry.displayCost, 0);
   const myRank = rankedEntries.find((entry) => entry.userId === data.mySummary.userId);
   const rangeLabel = data.ranges.find((range) => range.key === activeRange)?.label ?? "今天";
   const boardLabel = data.boards.find((board) => board.key === activeBoard)?.label ?? "总榜";
@@ -416,7 +420,9 @@ function LeaderboardView({
             {rangeLabel}{boardLabel} Top 20
           </h2>
           <p className="text-sm text-foreground-muted">
-            全员累计 {activeMetric === "cost" ? `≈${formatUsd(totalCost)}` : `${formatTokens(totalTokens)} tokens`}
+            全员累计 {activeMetric === "cost"
+              ? `≈${formatUsd(totalCost)}`
+              : `${formatTokens(activeMetric === "norm" ? totalNorm : totalTokens)} tokens`}
           </p>
         </div>
 
@@ -614,6 +620,13 @@ function ConnectView({ data }: { data: TokenRankData }) {
         <h1 className="mt-4 text-3xl font-bold text-foreground">如何上榜</h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-foreground-muted md:text-base md:leading-8">
           生成你的专属上报命令，在本机安装后台小程序。它每天自动统计 Codex、Claude Code、Cursor、Gemini、Kimi 等工具的 token 用量，只上报数量，不上传代码、对话或本地文件。
+        </p>
+      </section>
+
+      <section className="border border-accent/30 bg-accent/[0.06] p-5">
+        <h2 className="font-bold text-accent">统计规则已升级至 v0.2.0</h2>
+        <p className="mt-2 text-sm leading-6 text-foreground-muted">
+          已经上榜的用户不需要生成新身份。重新执行原来的专属安装命令即可覆盖旧客户端；首次成功同步会重算并替换本设备最近 35 个北京时间自然日的 Codex 统计。其他用户、设备、工具和窗口外历史不受这次纠错影响。
         </p>
       </section>
 
@@ -935,7 +948,7 @@ function RulesView({ data }: { data: TokenRankData }) {
         <p className="text-xs font-bold tracking-[0.24em] text-accent">统计规则</p>
         <h1 className="mt-4 text-3xl font-bold text-foreground">Token 消耗榜统计口径</h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-foreground-muted md:text-base md:leading-8">
-          榜单只统计 token 数量、工具、模型、日期和设备指纹摘要，不上传代码、对话内容、文件路径或 API Key。
+          榜单只统计 token 数量、工具、模型、日期和本机生成的随机设备标识，不上传代码、对话内容、文件路径或 API Key。
         </p>
       </section>
 
@@ -943,13 +956,13 @@ function RulesView({ data }: { data: TokenRankData }) {
         <div className="glass-card p-5">
           <h2 className="font-bold text-foreground">含缓存</h2>
           <p className="mt-2 text-sm leading-6 text-foreground-muted">
-            输入 + 输出 + 缓存读写 token，适合作为实际工具吞吐量排名。
+            新输入 + 输出 + 缓存读取 + 缓存写入。四个桶互不重叠，每个 token 只计算一次。
           </p>
         </div>
         <div className="glass-card p-5">
           <h2 className="font-bold text-foreground">不含缓存</h2>
           <p className="mt-2 text-sm leading-6 text-foreground-muted">
-            只计算输入 + 输出 token，避免不同工具缓存机制影响榜单。
+            只计算新输入 + 输出，不含缓存命中和缓存写入，便于比较非缓存工作量。
           </p>
         </div>
         <div className="glass-card p-5">
@@ -958,6 +971,20 @@ function RulesView({ data }: { data: TokenRankData }) {
             按等效 API 成本估算，方便比较不同模型和工具的消耗强度。
           </p>
         </div>
+      </section>
+
+      <section className="glass-card p-5">
+        <h2 className="font-bold text-foreground">Codex 原始日志口径</h2>
+        <ul className="mt-4 space-y-3 text-sm leading-6 text-foreground-muted">
+          <li>数据直接来自 Codex 本机 JSONL 会话日志，不依赖 CC Switch 或其他统计软件。</li>
+          <li>每条有效 token_count 事件取相邻 total_token_usage 累计快照的正增量；重复快照增量为 0。</li>
+          <li>含缓存总量等于 input_tokens + output_tokens。cached_input_tokens 是 input_tokens 的子集，reasoning_output_tokens 是 output_tokens 的子集，两者都不会重复相加。</li>
+          <li>子智能体 rollout 按显式 trigger_turn 或当前 UUIDv7 turn 边界剔除 fork 时继承的父会话前缀。</li>
+          <li>没有 fork 边界时，仅跳过无计数事件或父子终态累计计数相同、可证明没有新增用量的中止会话；其余会话暂缓统计，不猜测入榜。</li>
+          <li>事件按时间戳归入北京时间自然日；文件大小不设上限，解析缓存只保存在本机，不随统计上报发送。</li>
+          <li>重装时只权威重算本设备最近 35 个北京时间自然日的 Codex 历史；其他设备、工具、用户及窗口外数据不会被这次快照删除。</li>
+          <li>扫描、JSONL 解析、时间戳、累计计数或 fork 完整性检查任一失败，都不会提交权威快照或覆盖既有 Codex 历史。</li>
+        </ul>
       </section>
 
       <section className="glass-card p-5">
@@ -998,8 +1025,8 @@ function RulesView({ data }: { data: TokenRankData }) {
         <div className="glass-card p-5">
           <h2 className="font-bold text-foreground">隐私边界</h2>
           <div className="mt-4 space-y-3 text-sm leading-6 text-foreground-muted">
-            <p>客户端只读取 token 计数字段，不读取代码、对话正文、文件内容或 API Key。</p>
-            <p>上报数据只包含用户 token、工具、模型、日期、输入/输出/缓存 token 和客户端版本。</p>
+            <p>客户端在本机只提取 token 计数，以及去重所需的时间戳、模型、会话和 fork 元数据；不会收集或上传代码、对话正文、文件内容、文件路径或 API Key。</p>
+            <p>上报包含身份令牌、设备标识、客户端版本、工具、模型、日期和输入/输出/缓存计数；Codex 权威快照另带统计截止时间、35 日窗口和完整性声明。</p>
             <p>用户可以停止本机后台任务，停止后榜单只保留历史统计，不再新增用量。</p>
           </div>
         </div>
@@ -1035,6 +1062,7 @@ export function TokenRankClient({ data }: { data: TokenRankData }) {
           entries?: TokenRankEntry[];
           totalMembers?: number;
           updatedAt?: string;
+          aggregate?: TokenRankData["aggregate"];
         };
 
         if (!response.ok || body.status !== 0 || !Array.isArray(body.entries)) return;
@@ -1044,6 +1072,7 @@ export function TokenRankClient({ data }: { data: TokenRankData }) {
           entries: body.entries ?? current.entries,
           totalMembers: body.totalMembers ?? current.totalMembers,
           updatedAt: body.updatedAt ?? current.updatedAt,
+          aggregate: body.aggregate ?? current.aggregate,
         }));
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError") return;
