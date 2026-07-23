@@ -352,6 +352,75 @@ test("reinstalling without a Codex source does not clear existing Codex history"
   assert.ok(own.some((record) => record.model === "must-survive-no-source"));
 });
 
+test("the installer completes scheduled setup under a UTF-8 locale", async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "znt-tokenrank-install-utf8-"));
+  const home = path.join(root, "home");
+  const installDir = path.join(home, ".znt-tokenrank");
+  const fakeBin = path.join(root, "bin");
+  fs.mkdirSync(fakeBin, { recursive: true });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+
+  fs.writeFileSync(path.join(fakeBin, "uname"), [
+    "#!/bin/sh",
+    "echo Darwin",
+    "",
+  ].join("\n"), { mode: 0o755 });
+  fs.writeFileSync(path.join(fakeBin, "launchctl"), [
+    "#!/bin/sh",
+    "exit 0",
+    "",
+  ].join("\n"), { mode: 0o755 });
+
+  const clientSource = fs.readFileSync(
+    path.join(process.cwd(), "public", "token-rank", "client.mjs"),
+    "utf8",
+  );
+  let uploadAttempts = 0;
+  const server = http.createServer(async (request, response) => {
+    if (request.method === "GET" && request.url === "/token-rank/client.mjs") {
+      response.writeHead(200, { "content-type": "text/javascript" });
+      response.end(clientSource);
+      return;
+    }
+    if (request.method === "POST" && request.url === "/api/token-rank/upload") {
+      uploadAttempts += 1;
+      const body = await readRequestJson(request);
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ status: 0, accepted: body.records.length }));
+      return;
+    }
+    response.writeHead(404);
+    response.end("not found");
+  });
+  await new Promise((resolve) => server.listen(0, "127.0.0.1", resolve));
+  t.after(() => new Promise((resolve) => server.close(resolve)));
+  const address = server.address();
+  assert.equal(typeof address, "object");
+
+  const result = await execFileAsync("bash", [
+    path.join(process.cwd(), "public", "token-rank", "install.sh"),
+    "--token",
+    "znt_trk_utf8_status",
+    "--endpoint",
+    `http://127.0.0.1:${address.port}/api/token-rank/upload`,
+  ], {
+    env: {
+      ...process.env,
+      HOME: home,
+      LANG: "C.UTF-8",
+      LC_ALL: "C.UTF-8",
+      PATH: `${fakeBin}:${process.env.PATH}`,
+      ZNT_TOKENRANK_HOME: installDir,
+      ZNT_TOKENRANK_NODE: process.execPath,
+    },
+    timeout: 60_000,
+  });
+
+  assert.equal(uploadAttempts, 1);
+  assert.match(result.stdout, /配置目录：.*\.znt-tokenrank。客户端版本：0\.2\.0/);
+  assert.equal(fs.existsSync(path.join(home, "Library", "LaunchAgents", "group.znt.tokenrank.plist")), true);
+});
+
 test("a scheduler failure restores the previous client, config, and launchd file", {
   skip: process.platform !== "darwin",
 }, async (t) => {

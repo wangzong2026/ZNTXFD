@@ -261,4 +261,4 @@ rm -f "$CLIENT_BACKUP" "$CONFIG_BACKUP" "${PLIST_BACKUP:-}" \
   "${SYSTEMD_SERVICE_BACKUP:-}" "${SYSTEMD_TIMER_BACKUP:-}" \
   "${CRON_BACKUP:-}" "${CRON_NEXT:-}"
 trap - EXIT
-echo "Token 消耗榜已接入。配置目录：$INSTALL_DIR。客户端版本：$CLIENT_VERSION"
+echo "Token 消耗榜已接入。配置目录：${INSTALL_DIR}。客户端版本：$CLIENT_VERSION"
