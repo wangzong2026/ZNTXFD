@@ -344,3 +344,10 @@ test("leaderboard aggregate covers every member and keeps total separate from no
   assert.ok(board.aggregate.norm > visibleNorm);
   assert.notEqual(board.aggregate.total, board.aggregate.norm);
 });
+
+test("Blob ifMatch normalization accepts legacy weak ETags", async (t) => {
+  const { store } = await setupStore(t);
+  assert.equal(store.normalizeBlobIfMatchVersion(null), null);
+  assert.equal(store.normalizeBlobIfMatchVersion("\"strong-etag\""), "\"strong-etag\"");
+  assert.equal(store.normalizeBlobIfMatchVersion("W/\"legacy-etag\""), "\"legacy-etag\"");
+});

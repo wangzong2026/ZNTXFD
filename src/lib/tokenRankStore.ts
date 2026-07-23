@@ -243,6 +243,10 @@ function contentVersion(content: string) {
   return crypto.createHash("sha256").update(content).digest("hex");
 }
 
+export function normalizeBlobIfMatchVersion(version: string | null) {
+  return version?.startsWith("W/") ? version.slice(2) : version;
+}
+
 async function readStoreVersioned(): Promise<VersionedStore> {
   if (hasBlobStore()) {
     try {
@@ -288,11 +292,12 @@ async function writeStoreVersioned(store: TokenRankStore, expectedVersion: strin
   const content = storeContent(store);
   if (hasBlobStore()) {
     try {
+      const ifMatch = normalizeBlobIfMatchVersion(expectedVersion);
       await putBlob(BLOB_KEY, content, {
         access: "private",
         allowOverwrite: expectedVersion !== null,
         contentType: "application/json",
-        ...(expectedVersion === null ? {} : { ifMatch: expectedVersion }),
+        ...(ifMatch === null ? {} : { ifMatch }),
       });
     } catch (error) {
       if (
